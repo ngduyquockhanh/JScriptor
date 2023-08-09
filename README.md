@@ -6,7 +6,7 @@ Pre-Script and Post-Script like Postman extension for Burpsuite
 - End of script is a **HttpRequest** object
 - Example:
 ```JS
-jsrequest.withHeader("Hash":"testHeader");
+jsrequest.withHeader("Hash","testHeader");
 ```
 
 ## Post-script
