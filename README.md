@@ -49,7 +49,7 @@ jsrequest.withHeader("Hash", hashHeader);
 | String  | url()  | URL for the request.  | 
 | HttpRequest  | withAddedHeader(String name, String value)  | Create a copy of the HttpRequest with the added header.  | 
 | HttpRequest  | withAddedParameters(HttpParameter... parameters)  | Create a copy of the HttpRequest with the added HTTP parameters.  | 
-| HttpRequest  | withAddedParameters(List<HttpParameter> parameters)  | Create a copy of the HttpRequest with the added HTTP parameters.  | 
+| HttpRequest  | withAddedParameters(List\<HttpParameter\> parameters)  | Create a copy of the HttpRequest with the added HTTP parameters.  | 
 | HttpRequest  | withBody(ByteArray body)  | Create a copy of the HttpRequest with the updated body. Updates Content-Length header.  | 
 | HttpRequest  | withBody(String body)  | Create a copy of the HttpRequest with the updated body. Updates Content-Length header.  | 
 | HttpRequest  | withDefaultHeaders()  | Create a copy of the HttpRequest with added default headers.  | 
@@ -59,10 +59,10 @@ jsrequest.withHeader("Hash", hashHeader);
 | HttpRequest  | withPath(String path)  | Create a copy of the HttpRequest with the new path.  | 
 | HttpRequest  | withRemovedHeader(String name)  | Removes an existing HTTP header from the current request.  | 
 | HttpRequest  | withRemovedParameters(HttpParameter... parameters)  | Create a copy of the HttpRequest with the removed HTTP parameters.  | 
-| HttpRequest  | withRemovedParameters(List<HttpParameter> parameters)  | Create a copy of the HttpRequest with the removed HTTP parameters.  | 
+| HttpRequest  | withRemovedParameters(List\<HttpParameter\> parameters)  | Create a copy of the HttpRequest with the removed HTTP parameters.  | 
 | HttpRequest  | withUpdatedHeader(String name, String value)  | Create a copy of the HttpRequest with the updated header.  | 
 | HttpRequest  | withUpdatedParameters(HttpParameter... parameters)  | Create a copy of the HttpRequest with the updated HTTP parameters.  | 
-| HttpRequest  | withUpdatedParameters(List<HttpParameter> parameters)  | Create a copy of the HttpRequest with the updated HTTP parameters.  | 
+| HttpRequest  | withUpdatedParameters(List\<HttpParameter\> parameters)  | Create a copy of the HttpRequest with the updated HTTP parameters.  | 
 
 
 - **jsresponse**
