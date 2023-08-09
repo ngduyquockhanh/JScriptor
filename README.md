@@ -2,6 +2,7 @@
 Pre-Script and Post-Script like Postman extension for Burpsuite
 
 # Usage
+With extension, you can import JavaScript code and it will be run like Pre-script and Post-script in Postman. You can see output of pre-script/post-script in output of extension.
 ## Pre-script
 - End of script is a **HttpRequest** object
 - Example:
