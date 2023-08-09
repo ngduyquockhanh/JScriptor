@@ -28,6 +28,9 @@ var hash = CryptoJS.SHA256("Message");
 var hashHeader = hash.toString(CryptoJS.enc.Base64);
 jsrequest.withHeader("Hash", hashHeader);
 ```
+![image](https://github.com/ngduyquockhanh/JScriptor/assets/87865134/4ba7d55e-eb95-41d0-ae88-4aa3de46fe41)
+
+
 
 ## Global Object
 - **jsrequest**
