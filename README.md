@@ -47,25 +47,19 @@ jsrequest.withHeader("Hash", hashHeader);
 | ByteArray  | toByteArray()  | Message as a byte array.  | 
 | String  | toString()  | Message as a String.  | 
 | String  | url()  | URL for the request.  | 
-| HttpRequest  | withAddedHeader(HttpHeader header)  | Create a copy of the HttpRequest with the added header.  | 
 | HttpRequest  | withAddedHeader(String name, String value)  | Create a copy of the HttpRequest with the added header.  | 
 | HttpRequest  | withAddedParameters(HttpParameter... parameters)  | Create a copy of the HttpRequest with the added HTTP parameters.  | 
 | HttpRequest  | withAddedParameters(List<HttpParameter> parameters)  | Create a copy of the HttpRequest with the added HTTP parameters.  | 
 | HttpRequest  | withBody(ByteArray body)  | Create a copy of the HttpRequest with the updated body. Updates Content-Length header.  | 
 | HttpRequest  | withBody(String body)  | Create a copy of the HttpRequest with the updated body. Updates Content-Length header.  | 
 | HttpRequest  | withDefaultHeaders()  | Create a copy of the HttpRequest with added default headers.  | 
-| HttpRequest  | withHeader(HttpHeader header)  | Create a copy of the HttpRequest with the added or updated header. If the header exists in the request, it is updated. If the header doesn't exist in the request, it is added.  | 
 | HttpRequest  | withHeader(String name, String value)  | Create a copy of the HttpRequest with the added or updated header. If the header exists in the request, it is updated. If the header doesn't exist in the request, it is added.  | 
-| HttpRequest  | withMarkers(Marker... markers)  | Create a copy of the HttpRequest with the added markers.  | 
-| HttpRequest  | withMarkers(List<Marker> markers)  | Create a copy of the HttpRequest with the added markers.  | 
 | HttpRequest  | withMethod(String method)  | Create a copy of the HttpRequest with the new method.  | 
 | HttpRequest  | withParameter(HttpParameter parameters)  | Create a copy of the HttpRequest with the HTTP parameter. If the parameter exists in the request, it is updated. If the parameter doesn't exist in the request, it is added.  | 
 | HttpRequest  | withPath(String path)  | Create a copy of the HttpRequest with the new path.  | 
-| HttpRequest  | withRemovedHeader(HttpHeader header)  | Removes an existing HTTP header from the current request.  | 
 | HttpRequest  | withRemovedHeader(String name)  | Removes an existing HTTP header from the current request.  | 
 | HttpRequest  | withRemovedParameters(HttpParameter... parameters)  | Create a copy of the HttpRequest with the removed HTTP parameters.  | 
 | HttpRequest  | withRemovedParameters(List<HttpParameter> parameters)  | Create a copy of the HttpRequest with the removed HTTP parameters.  | 
-| HttpRequest  | withUpdatedHeader(HttpHeader header)  | Create a copy of the HttpRequest with the updated header.  | 
 | HttpRequest  | withUpdatedHeader(String name, String value)  | Create a copy of the HttpRequest with the updated header.  | 
 | HttpRequest  | withUpdatedParameters(HttpParameter... parameters)  | Create a copy of the HttpRequest with the updated HTTP parameters.  | 
 | HttpRequest  | withUpdatedParameters(List<HttpParameter> parameters)  | Create a copy of the HttpRequest with the updated HTTP parameters.  | 
@@ -94,14 +88,11 @@ jsrequest.withHeader("Hash", hashHeader);
 | short  | statusCode()  | Obtain the HTTP status code contained in the response.  | 
 | ByteArray  | toByteArray()  | Message as a byte array.  | 
 | String  | toString()  | Message as a String.  | 
-| HttpResponse  | withAddedHeader(HttpHeader header)  | Create a copy of the HttpResponse with the added header.  | 
 | HttpResponse  | withAddedHeader(String name, String value)  | Create a copy of the HttpResponse with the added header.  | 
 | HttpResponse  | withBody(ByteArray body)  | Create a copy of the HttpResponse with the updated body. Updates Content-Length header.  | 
 | HttpResponse  | withBody(String body)  | Create a copy of the HttpResponse with the updated body. Updates Content-Length header.  | 
 | HttpResponse  | withHttpVersion(String httpVersion)  | Create a copy of the HttpResponse with the new http version.  |  
 | HttpResponse  | withReasonPhrase(String reasonPhrase)  | Create a copy of the HttpResponse with the new reason phrase.  | 
-| HttpResponse  | withRemovedHeader(HttpHeader header)  | Create a copy of the HttpResponse with the removed header.  | 
 | HttpResponse  | withRemovedHeader(String name)  | Create a copy of the HttpResponse with the removed header.  | 
 | HttpResponse  | withStatusCode(short statusCode)  | Create a copy of the HttpResponse with the provided status code.  | 
-| HttpResponse  | withUpdatedHeader(HttpHeader header)  | Create a copy of the HttpResponse with the updated header.  | 
 | HttpResponse  | withUpdatedHeader(String name, String value)  | Create a copy of the HttpResponse with the updated header.  | 
