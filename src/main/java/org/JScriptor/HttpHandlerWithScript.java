@@ -8,20 +8,31 @@ import org.graalvm.polyglot.*;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class HttpHandlerWithScript implements HttpHandler {
     private MontoyaApi api;
     private JTextArea prescript, postscript;
     private JToggleButton runPrescript, runPostscript;
     private DefaultTableModel tableModel;
-
-    public HttpHandlerWithScript(MontoyaApi api, JTextArea prescript, JTextArea postscript, JToggleButton runPrescript, JToggleButton runPostscript, DefaultTableModel tableModel) {
+    private JTextArea regextPreTextArea, regexPostTextArea;
+    private JCheckBox isScopePreButton, isRegexPreButton, isRegexPostButton;
+    public HttpHandlerWithScript(MontoyaApi api, JTextArea prescript, JTextArea postscript, JToggleButton runPrescript,
+                                 JToggleButton runPostscript, DefaultTableModel tableModel,
+                                 JCheckBox isScopePreButton, JCheckBox isRegexPreButton, JTextArea regextPreTextArea,
+                                 JCheckBox isRegexPostButton, JTextArea regexPostTextArea) {
         this.api = api;
         this.prescript = prescript;
         this.postscript = postscript;
         this.runPrescript = runPrescript;
         this.runPostscript = runPostscript;
         this.tableModel = tableModel;
+        this.isRegexPreButton = isRegexPreButton;
+        this.isScopePreButton = isScopePreButton;
+        this.regextPreTextArea = regextPreTextArea;
+        this.isRegexPostButton = isRegexPostButton;
+        this.regexPostTextArea = regexPostTextArea;
     }
 
     @Override
@@ -29,25 +40,36 @@ public class HttpHandlerWithScript implements HttpHandler {
         if (this.runPrescript.isSelected()){
             String pre_script = this.prescript.getText().trim();
             if (!pre_script.isEmpty()){
-                    try {
-                        Context context = Context.newBuilder("js").allowHostAccess(HostAccess.ALL).build();
-                        context.getBindings("js").putMember("jsrequest", requestToBeSent);
-                        context = loadLibrary(context);
-                        Value jsResult = context.eval("js", pre_script);
-
-                        try{
-                            HttpRequest modifiedRequest = jsResult.as(HttpRequest.class);
-                            this.api.logging().logToOutput("Modified Request: \n" + modifiedRequest.toString());
-                            return RequestToBeSentAction.continueWith(modifiedRequest);
-                        }catch (Exception e){
-                            this.api.logging().logToOutput("Result: " + jsResult);
-                            return RequestToBeSentAction.continueWith(requestToBeSent);
-                        }
-
-
-                    } catch (Exception e) {
-                        this.api.logging().logToError(e.getMessage());
+                if (this.isScopePreButton.isSelected()){
+                    if (!this.api.scope().isInScope(requestToBeSent.url())){
+                        return RequestToBeSentAction.continueWith(requestToBeSent);
                     }
+                }
+                if (this.isRegexPreButton.isSelected()){
+                    Pattern pattern = Pattern.compile(this.regextPreTextArea.getText().trim());
+                    Matcher matcher = pattern.matcher(requestToBeSent.toString());
+                    if (!matcher.find()){
+                        return RequestToBeSentAction.continueWith(requestToBeSent);
+                    }
+                }
+                try {
+                    Context context = Context.newBuilder("js").allowHostAccess(HostAccess.ALL).build();
+                    context.getBindings("js").putMember("jsrequest", requestToBeSent);
+                    context = loadLibrary(context);
+                    Value jsResult = context.eval("js", pre_script);
+
+                    try{
+                        HttpRequest modifiedRequest = jsResult.as(HttpRequest.class);
+                        this.api.logging().logToOutput("Modified Request: \n" + modifiedRequest.toString());
+                        return RequestToBeSentAction.continueWith(modifiedRequest);
+                    }catch (Exception e){
+                        this.api.logging().logToOutput("" + jsResult);
+                        return RequestToBeSentAction.continueWith(requestToBeSent);
+                    }
+
+                } catch (Exception e) {
+                    this.api.logging().logToError(e.getMessage());
+                }
             }
         }
         return RequestToBeSentAction.continueWith(requestToBeSent);
@@ -58,6 +80,14 @@ public class HttpHandlerWithScript implements HttpHandler {
         if (this.runPostscript.isSelected()){
             String post_script = this.postscript.getText().trim();
             if (!post_script.isEmpty()){
+                if (this.isRegexPostButton.isSelected()){
+                    Pattern pattern = Pattern.compile(this.regexPostTextArea.getText().trim());
+                    Matcher matcher = pattern.matcher(responseReceived.toString());
+                    if (!matcher.find()){
+                        return ResponseReceivedAction.continueWith(responseReceived);
+                    }
+                }
+
                 try {
                     Context context = Context.newBuilder("js").allowHostAccess(HostAccess.ALL).build();
                     context.getBindings("js").putMember("jsresponse", responseReceived);
@@ -69,7 +99,7 @@ public class HttpHandlerWithScript implements HttpHandler {
                         this.api.logging().logToOutput("Modified response: \n" + modifiedResponse.toString());
                         return ResponseReceivedAction.continueWith(modifiedResponse);
                     }catch (Exception e){
-                        this.api.logging().logToOutput("Result: " + jsResult);
+                        this.api.logging().logToOutput("" + jsResult);
                         return ResponseReceivedAction.continueWith(responseReceived);
                     }
 
