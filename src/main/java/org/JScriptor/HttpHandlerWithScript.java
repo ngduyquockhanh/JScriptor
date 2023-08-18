@@ -18,6 +18,7 @@ public class HttpHandlerWithScript implements HttpHandler {
     private DefaultTableModel tableModel;
     private JTextArea regextPreTextArea, regexPostTextArea;
     private JCheckBox isScopePreButton, isRegexPreButton, isRegexPostButton;
+    private Context context = Context.newBuilder("js").allowHostAccess(HostAccess.ALL).build();
     public HttpHandlerWithScript(MontoyaApi api, JTextArea prescript, JTextArea postscript, JToggleButton runPrescript,
                                  JToggleButton runPostscript, DefaultTableModel tableModel,
                                  JCheckBox isScopePreButton, JCheckBox isRegexPreButton, JTextArea regextPreTextArea,
@@ -33,6 +34,7 @@ public class HttpHandlerWithScript implements HttpHandler {
         this.regextPreTextArea = regextPreTextArea;
         this.isRegexPostButton = isRegexPostButton;
         this.regexPostTextArea = regexPostTextArea;
+        this.context.eval("js", "jsenv = {}");
     }
 
     @Override
@@ -53,8 +55,7 @@ public class HttpHandlerWithScript implements HttpHandler {
                     }
                 }
                 try {
-                    Context context = Context.newBuilder("js").allowHostAccess(HostAccess.ALL).build();
-                    context.getBindings("js").putMember("jsrequest", requestToBeSent);
+                    this.context.getBindings("js").putMember("jsrequest", requestToBeSent);
                     context = loadLibrary(context);
                     Value jsResult = context.eval("js", pre_script);
 
@@ -89,8 +90,7 @@ public class HttpHandlerWithScript implements HttpHandler {
                 }
 
                 try {
-                    Context context = Context.newBuilder("js").allowHostAccess(HostAccess.ALL).build();
-                    context.getBindings("js").putMember("jsresponse", responseReceived);
+                    this.context.getBindings("js").putMember("jsresponse", responseReceived);
                     context = loadLibrary(context);
                     Value jsResult = context.eval("js", post_script);
 
