@@ -1,0 +1,13 @@
+Uuid: 59dce89e125a411c9bc38c54df0c599a
+ExtensionType: 1
+Name: JScriptor
+RepoName: jscriptor
+ScreenVersion: 1.2
+SerialVersion: 1
+MinPlatformVersion: 10
+ProOnly: False
+Author: Nguyen Duy Quoc Khanh
+ShortDescription: Use JavaScript to run pre and post request scripts.
+EntryPoint: build/libs/JScriptor-1.2.jar
+BuildCommand: ./gradlew jar
+SupportedProducts: Pro, Community
