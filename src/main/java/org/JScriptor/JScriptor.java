@@ -2,6 +2,7 @@ package org.JScriptor;
 import burp.api.montoya.*;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -9,8 +10,8 @@ import java.io.File;
 
 public class JScriptor implements  BurpExtension{
     private MontoyaApi montoyaApi;
-    private JTextArea prescript = new JTextArea();
-    private JTextArea postscript = new JTextArea();
+    private JTextArea prescript;
+    private JTextArea postscript;
     private JToggleButton runPrescript = new JToggleButton("Run Pre-script");
     private JToggleButton runPostscript = new JToggleButton("Run Post-script");
     private  DefaultTableModel tableModel = new DefaultTableModel(new Object[]{"File Path"}, 0);
@@ -18,8 +19,8 @@ public class JScriptor implements  BurpExtension{
     private JCheckBox isScopePreButton = new JCheckBox("In Scope Item");
     private JCheckBox isRegexPreButton = new JCheckBox("Add Regex");
     private JCheckBox isRegexPostButton = new JCheckBox("Add Regex");
-    private JTextArea regextPreTextArea = new JTextArea();
-    private JTextArea regextPostTextArea = new JTextArea();
+    private JTextArea regextPreTextArea;
+    private JTextArea regextPostTextArea;
 
     @Override
     public void initialize(MontoyaApi api) {
@@ -28,6 +29,13 @@ public class JScriptor implements  BurpExtension{
         JPanel JScriptorPanel = new JPanel();
         JScriptorPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
         JTabbedPane tabbedPane = new JTabbedPane();
+
+        this.prescript = new JTextArea(30,100);
+        this.postscript = new JTextArea(30,100);
+        this.regextPreTextArea = new JTextArea();
+        this.regextPostTextArea = new JTextArea();
+
+
         tabbedPane.setTabPlacement(JTabbedPane.TOP);
         tabbedPane.add("Pre-script", createTabPanel(this.prescript, this.runPrescript, this.isScopePreButton,
                 this.isRegexPreButton, this.regextPreTextArea));

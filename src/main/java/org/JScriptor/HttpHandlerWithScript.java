@@ -2,8 +2,10 @@ package org.JScriptor;
 
 import burp.api.montoya.*;
 import burp.api.montoya.http.handler.*;
+import burp.api.montoya.http.message.params.HttpParameterType;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
+import burp.api.montoya.http.message.params.HttpParameter;
 import org.graalvm.polyglot.*;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -18,7 +20,7 @@ public class HttpHandlerWithScript implements HttpHandler {
     private DefaultTableModel tableModel;
     private JTextArea regextPreTextArea, regexPostTextArea;
     private JCheckBox isScopePreButton, isRegexPreButton, isRegexPostButton;
-    private Context context = Context.newBuilder("js").allowHostAccess(HostAccess.ALL).build();
+    private String env;
     public HttpHandlerWithScript(MontoyaApi api, JTextArea prescript, JTextArea postscript, JToggleButton runPrescript,
                                  JToggleButton runPostscript, DefaultTableModel tableModel,
                                  JCheckBox isScopePreButton, JCheckBox isRegexPreButton, JTextArea regextPreTextArea,
@@ -34,7 +36,8 @@ public class HttpHandlerWithScript implements HttpHandler {
         this.regextPreTextArea = regextPreTextArea;
         this.isRegexPostButton = isRegexPostButton;
         this.regexPostTextArea = regexPostTextArea;
-        this.context.eval("js", "jsenv = {}");
+        this.env = null;
+
     }
 
     @Override
@@ -55,12 +58,14 @@ public class HttpHandlerWithScript implements HttpHandler {
                     }
                 }
                 try {
-                    this.context.getBindings("js").putMember("jsrequest", requestToBeSent);
+                    Context context = Context.newBuilder("js").allowIO(true).allowHostAccess(HostAccess.ALL).build();
+                    context.getBindings("js").putMember("jsrequest", requestToBeSent);
                     context = loadLibrary(context);
                     Value jsResult = context.eval("js", pre_script);
 
                     try{
-                        HttpRequest modifiedRequest = jsResult.as(HttpRequest.class);
+                        this.env = jsResult.getMember("env").toString();
+                        HttpRequest modifiedRequest = jsResult.getMember("data").as(HttpRequest.class);
                         this.api.logging().logToOutput("Modified Request: \n" + modifiedRequest.toString());
                         return RequestToBeSentAction.continueWith(modifiedRequest);
                     }catch (Exception e){
@@ -90,12 +95,14 @@ public class HttpHandlerWithScript implements HttpHandler {
                 }
 
                 try {
-                    this.context.getBindings("js").putMember("jsresponse", responseReceived);
+                    Context context = Context.newBuilder("js").allowIO(true).allowHostAccess(HostAccess.ALL).build();
+                    context.getBindings("js").putMember("jsresponse", responseReceived);
                     context = loadLibrary(context);
                     Value jsResult = context.eval("js", post_script);
 
                     try{
-                        HttpResponse modifiedResponse = jsResult.as(HttpResponse.class);
+                        this.env = jsResult.getMember("env").toString();
+                        HttpResponse modifiedResponse = jsResult.getMember("data").as(HttpResponse.class);
                         this.api.logging().logToOutput("Modified response: \n" + modifiedResponse.toString());
                         return ResponseReceivedAction.continueWith(modifiedResponse);
                     }catch (Exception e){
@@ -104,7 +111,7 @@ public class HttpHandlerWithScript implements HttpHandler {
                     }
 
                 } catch (Exception e) {
-                    this.api.logging().logToError(e.getMessage());
+                    this.api.logging().logToError(e.getMessage().replaceAll("\\s+", " ").replaceAll("(?m)\\n{2,}", "\n"));
                 }
             }
         }
@@ -124,6 +131,7 @@ public class HttpHandlerWithScript implements HttpHandler {
                 context.eval("js", libraryContent);
             }
         }
+        context.eval("js", "jsresult = {data:null, env:" + this.env + "}");
 
         return context;
     }
