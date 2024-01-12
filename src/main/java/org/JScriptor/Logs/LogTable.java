@@ -28,5 +28,52 @@ public class LogTable extends JTable {
         this.modifiedResponse = modifiedResponse;
     }
 
+    public LogTableModel getLogTableModel() {
+        return logTableModel;
+    }
+
+    public void setLogTableModel(LogTableModel logTableModel) {
+        this.logTableModel = logTableModel;
+    }
+
+    public HashMap<Integer, LogEntry> getLogEntryHashMap() {
+        return logEntryHashMap;
+    }
+
+    public void setLogEntryHashMap(HashMap<Integer, LogEntry> logEntryHashMap) {
+        this.logEntryHashMap = logEntryHashMap;
+    }
+
+    public HttpRequestEditor getOriginalRequest() {
+        return originalRequest;
+    }
+
+    public void setOriginalRequest(HttpRequestEditor originalRequest) {
+        this.originalRequest = originalRequest;
+    }
+
+    public HttpResponseEditor getOriginalResponse() {
+        return originalResponse;
+    }
+
+    public void setOriginalResponse(HttpResponseEditor originalResponse) {
+        this.originalResponse = originalResponse;
+    }
+
+    public HttpRequestEditor getModifiedRequest() {
+        return modifiedRequest;
+    }
+
+    public void setModifiedRequest(HttpRequestEditor modifiedRequest) {
+        this.modifiedRequest = modifiedRequest;
+    }
+
+    public HttpResponseEditor getModifiedResponse() {
+        return modifiedResponse;
+    }
+
+    public void setModifiedResponse(HttpResponseEditor modifiedResponse) {
+        this.modifiedResponse = modifiedResponse;
+    }
 }
 

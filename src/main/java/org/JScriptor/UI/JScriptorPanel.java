@@ -4,25 +4,29 @@ import javax.swing.*;
 import javax.swing.event.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.text.JTextComponent;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.persistence.PersistedList;
 import burp.api.montoya.ui.editor.HttpRequestEditor;
 import burp.api.montoya.ui.editor.HttpResponseEditor;
-import burp.api.montoya.ui.editor.RawEditor;
 import org.JScriptor.Logs.LogEntry;
 import org.JScriptor.Logs.LogTable;
 import org.JScriptor.Logs.LogTableModel;
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
+import org.fife.ui.rsyntaxtextarea.Theme;
+import org.fife.ui.rtextarea.RTextScrollPane;
 import org.graalvm.polyglot.Source;
 
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 
 public class JScriptorPanel {
-
     private MontoyaApi montoyaApi;
     private JSplitPane mainSlitPaneHorizontal;
     private JSplitPane aboveSplitPaneVertizontal;
@@ -31,25 +35,31 @@ public class JScriptorPanel {
 
     private HashMap<Integer, LogEntry> logEntryHashMap;
     private HashMap<String, String> logRowHashMap;
+
     private JPanel extensionPanel;
     private JPanel extensionButtonPanel;
-
     private JButton removeLogButton;
     private JCheckBox saveLogButton;
     private JCheckBox runPrescriptButton;
     private JCheckBox runPostscriptButton;
-    private JTabbedPane extensionTabbedPane;
 
+    private JPanel configurationPanel;
+
+    private JRadioButton runWithGraaljs;
+
+    private JRadioButton runWithJavet;
+
+    private JTabbedPane extensionTabbedPane;
     private JPanel prescriptPanel;
-    private RawEditor prescriptTextArea;
-    private RawEditor prescriptRegexTextArea;
+    private RSyntaxTextArea prescriptTextArea;
+    private RSyntaxTextArea prescriptRegexTextArea;
     private JCheckBox prescriptIsNotModifyRequestFromProxyCheckbox;
     private JCheckBox prescriptIsInScopeCheckBox;
     private JCheckBox prescriptIsMatchRegexCheckBox;
 
     private JPanel postscriptPanel;
-    private RawEditor postscriptTextArea;
-    private RawEditor postscriptRegexTextArea;
+    private RSyntaxTextArea postscriptTextArea;
+    private RSyntaxTextArea postscriptRegexTextArea;
     private JCheckBox postscriptIsNotModifyResponseFromProxyCheckBox;
     private JCheckBox postscriptIsMatchRegexCheckBox;
 
@@ -72,31 +82,6 @@ public class JScriptorPanel {
     private HttpRequestEditor modifiedRequest;
     private HttpResponseEditor modifiedResponse;
 
-
-    public HashMap<Integer, LogEntry> getLogEntryHashMap() {
-        return logEntryHashMap;
-    }
-
-    public void setLogEntryHashMap(HashMap<Integer, LogEntry> logEntryHashMap) {
-        this.logEntryHashMap = logEntryHashMap;
-    }
-
-    public JButton getRemoveLogButton() {
-        return removeLogButton;
-    }
-
-    public void setRemoveLogButton(JButton removeLogButton) {
-        this.removeLogButton = removeLogButton;
-    }
-
-    public HashMap<String, String> getLogRowHashMap() {
-        return logRowHashMap;
-    }
-
-    public void setLogRowHashMap(HashMap<String, String> logRowHashMap) {
-        this.logRowHashMap = logRowHashMap;
-    }
-
     public JScriptorPanel(MontoyaApi api) {
         this.montoyaApi = api;
         this.mainSlitPaneHorizontal = new JSplitPane(0);
@@ -106,6 +91,7 @@ public class JScriptorPanel {
         this.tableRequestPanel = createTableLogPanel();
         this.logEntryHashMap = new HashMap<>();
         this.logRowHashMap = new HashMap<>();
+
 
         this.extensionPanel = new JPanel();
         this.extensionPanel.setLayout(new BoxLayout(this.extensionPanel,BoxLayout.Y_AXIS));
@@ -134,15 +120,36 @@ public class JScriptorPanel {
             }
         });
 
-        JPanel outButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        outButtonPanel.add(this.extensionButtonPanel);
+        this.configurationPanel = new JPanel();
+        this.configurationPanel.setLayout(new BoxLayout(this.configurationPanel, BoxLayout.Y_AXIS));
+        this.runWithGraaljs = new JRadioButton("Run with Graaljs");
+        this.runWithGraaljs.setSelected(true);
+        this.runWithJavet = new JRadioButton("Run with Javet");
+
+        ButtonGroup group = new ButtonGroup();
+        group.add(this.runWithGraaljs);
+        group.add(this.runWithJavet);
+
+        JLabel jLabel1 = new JLabel("- Graaljs can provide method to access to Java Class, and Node Module. But may get error when send many concurrent request");
+        JLabel jLabel2 = new JLabel("- Javet can provide method run nodejs and can handle when send many concurrent request");
+
+        this.configurationPanel.add(jLabel1);
+        this.configurationPanel.add(jLabel2);
+        this.configurationPanel.add(this.runWithGraaljs);
+        this.configurationPanel.add(this.runWithJavet);
+
+
+        JTabbedPane outButtonPanel = new JTabbedPane();
+        outButtonPanel.add("Running", this.extensionButtonPanel);
+        outButtonPanel.add("Configuration", this.configurationPanel);
 
 
         this.extensionTabbedPane = new JTabbedPane();
 
         this.prescriptPanel = new JPanel();
-        this.prescriptTextArea = this.montoyaApi.userInterface().createRawEditor();
-        this.prescriptRegexTextArea = this.montoyaApi.userInterface().createRawEditor();
+        RSyntaxTextArea first = createRSyntaxTextArea();
+        this.prescriptTextArea = createRSyntaxTextArea();
+        this.prescriptRegexTextArea = createRSyntaxTextArea();
         this.prescriptIsInScopeCheckBox = new JCheckBox("In Scope Item");
         this.prescriptIsMatchRegexCheckBox = new JCheckBox("Match regex");
         this.prescriptIsNotModifyRequestFromProxyCheckbox = new JCheckBox("Don't modified request from Proxy");
@@ -150,8 +157,8 @@ public class JScriptorPanel {
         this.prescriptPanel = createScriptPanel(this.prescriptTextArea, this.prescriptIsInScopeCheckBox,
                 this.prescriptIsMatchRegexCheckBox, this.prescriptRegexTextArea, this.prescriptIsNotModifyRequestFromProxyCheckbox);
 
-        this.postscriptTextArea = this.montoyaApi.userInterface().createRawEditor();
-        this.postscriptRegexTextArea = this.montoyaApi.userInterface().createRawEditor();
+        this.postscriptTextArea = createRSyntaxTextArea();
+        this.postscriptRegexTextArea = createRSyntaxTextArea();
         this.postscriptIsMatchRegexCheckBox = new JCheckBox("Match regex");
         this.postscriptIsNotModifyResponseFromProxyCheckBox = new JCheckBox("Don't modified response from Proxy");
 
@@ -189,6 +196,7 @@ public class JScriptorPanel {
         this.extensionPanel.add(outButtonPanel);
         this.extensionPanel.add(this.extensionTabbedPane);
 
+
         this.aboveSplitPaneVertizontal.setLeftComponent(this.tableRequestPanel);
         this.aboveSplitPaneVertizontal.setRightComponent(this.extensionPanel);
         this.aboveSplitPaneVertizontal.setResizeWeight(0.5);
@@ -216,7 +224,29 @@ public class JScriptorPanel {
 
         this.mainSlitPaneHorizontal.setTopComponent(this.aboveSplitPaneVertizontal);
         this.mainSlitPaneHorizontal.setBottomComponent(this.belowTabbedPane);
+        this.mainSlitPaneHorizontal.setResizeWeight(0.5);
 
+    }
+
+    private RSyntaxTextArea createRSyntaxTextArea(){
+        JTextComponent.removeKeymap("RTextAreaKeymap");
+        RSyntaxTextArea rSyntaxTextArea = new RSyntaxTextArea();
+        rSyntaxTextArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT);
+        try{
+            if (this.montoyaApi.userInterface().currentTheme().toString().equals("DARK")){
+                InputStream in = getClass().getClassLoader().getResourceAsStream("dark.xml");
+                Theme theme = Theme.load(in);
+                theme.apply(rSyntaxTextArea);
+
+            }
+        }catch (Exception e){
+            this.montoyaApi.logging().logToError(e.getMessage());
+        }
+        UIManager.put("RSyntaxTextAreaUI.actionMap", null);
+        UIManager.put("RSyntaxTextAreaUI.inputMap", null);
+        UIManager.put("RTextAreaUI.actionMap", null);
+        UIManager.put("RTextAreaUI.inputMap", null);
+        return rSyntaxTextArea;
     }
 
     private void openInputDialog(JPanel panel, DefaultTableModel tableModel) {
@@ -256,34 +286,6 @@ public class JScriptorPanel {
         inputDialog.add(submitButton);
 
         inputDialog.setVisible(true);
-    }
-
-    public MontoyaApi getMontoyaApi() {
-        return montoyaApi;
-    }
-
-    public void setMontoyaApi(MontoyaApi montoyaApi) {
-        this.montoyaApi = montoyaApi;
-    }
-
-    public DefaultTableModel getNodejsTableModel() {
-        return nodejsTableModel;
-    }
-
-    public void setNodejsTableModel(DefaultTableModel nodejsTableModel) {
-        this.nodejsTableModel = nodejsTableModel;
-    }
-
-    public DefaultTableModel getVariableTableModel() {
-        return variableTableModel;
-    }
-
-    public void setVariableTableModel(DefaultTableModel variableTableModel) {
-        this.variableTableModel = variableTableModel;
-    }
-
-    public void setBelowSplitPaneVertizontalModified(JSplitPane belowSplitPaneVertizontalModified) {
-        this.belowSplitPaneVertizontalModified = belowSplitPaneVertizontalModified;
     }
 
     private JPanel createTableLogPanel(){
@@ -331,21 +333,12 @@ public class JScriptorPanel {
         return panel;
     }
 
-    public LogTableModel getLogTableModel() {
-        return logTableModel;
-    }
 
-    public void setLogTableModel(LogTableModel logTableModel) {
-        this.logTableModel = logTableModel;
-    }
-
-    private JPanel createScriptPanel(RawEditor script, JCheckBox inScopeCheckbox,
-                                     JCheckBox regexCheckbox, RawEditor regexTextField, JCheckBox proxyCheckbox) {
+    private JPanel createScriptPanel(RSyntaxTextArea script, JCheckBox inScopeCheckbox,
+                                     JCheckBox regexCheckbox, RSyntaxTextArea regexTextField, JCheckBox proxyCheckbox) {
         JPanel panel = new JPanel(new BorderLayout());
 
-        // scope panel
         JLabel titleLabel = new JLabel("Run script for specific request");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
 
         JPanel scopePanel = new JPanel();
         scopePanel.setLayout(new BorderLayout());
@@ -357,28 +350,30 @@ public class JScriptorPanel {
         if (inScopeCheckbox != null){
             checkBoxPanel.add(inScopeCheckbox);
             if (this.montoyaApi.persistence().extensionData().getByteArray("prescript_code") != null){
-                script.setContents(this.montoyaApi.persistence().extensionData().getByteArray("prescript_code"));
+                script.setText(this.montoyaApi.persistence().extensionData().getByteArray("prescript_code").toString());
             }
         }
         else{
             if (this.montoyaApi.persistence().extensionData().getByteArray("postscript_code") != null){
-                script.setContents(this.montoyaApi.persistence().extensionData().getByteArray("postscript_code"));
+                script.setText(this.montoyaApi.persistence().extensionData().getByteArray("postscript_code").toString());
             }
         }
         checkBoxPanel.add(proxyCheckbox);
         checkBoxPanel.add(regexCheckbox);
 
 
-        scopePanel.add(checkBoxPanel, BorderLayout.NORTH);
-        scopePanel.add(regexTextField.uiComponent(), BorderLayout.CENTER);
 
-        panel.add(script.uiComponent(), BorderLayout.CENTER);
+        scopePanel.add(checkBoxPanel, BorderLayout.NORTH);
+        scopePanel.add(regexTextField, BorderLayout.CENTER);
+
+        RTextScrollPane rTextScrollPane = new RTextScrollPane(script);
+
+        panel.add(rTextScrollPane, BorderLayout.CENTER);
         panel.add(scopePanel, BorderLayout.EAST);
 
 
         return panel;
     }
-
 
     private JPanel createVariableTabPanel(DefaultTableModel tableModel){
         Set<String> listKey = montoyaApi.persistence().extensionData().stringKeys();
@@ -529,14 +524,6 @@ public class JScriptorPanel {
         return panel;
     }
 
-    public ArrayList<Source> getListPureLibray() {
-        return listPureLibray;
-    }
-
-    public void setListPureLibray(ArrayList<Source> listPureLibray) {
-        this.listPureLibray = listPureLibray;
-    }
-
     private JPanel createSettingNodejsTabPanel(DefaultTableModel tableModel) {
         String nodePath = montoyaApi.persistence().extensionData().getString("node_modules");
         if (nodePath != null){
@@ -584,6 +571,59 @@ public class JScriptorPanel {
 
         return panel;
     }
+
+    public MontoyaApi getMontoyaApi() {
+        return montoyaApi;
+    }
+
+    public void setMontoyaApi(MontoyaApi montoyaApi) {
+        this.montoyaApi = montoyaApi;
+    }
+
+    public LogTableModel getLogTableModel() {
+        return logTableModel;
+    }
+
+    public void setLogTableModel(LogTableModel logTableModel) {
+        this.logTableModel = logTableModel;
+    }
+
+    public HashMap<Integer, LogEntry> getLogEntryHashMap() {
+        return logEntryHashMap;
+    }
+
+    public void setLogEntryHashMap(HashMap<Integer, LogEntry> logEntryHashMap) {
+        this.logEntryHashMap = logEntryHashMap;
+    }
+
+    public ArrayList<Source> getListPureLibray() {
+        return listPureLibray;
+    }
+
+    public void setListPureLibray(ArrayList<Source> listPureLibray) {
+        this.listPureLibray = listPureLibray;
+    }
+
+    public DefaultTableModel getNodejsTableModel() {
+        return nodejsTableModel;
+    }
+
+    public void setNodejsTableModel(DefaultTableModel nodejsTableModel) {
+        this.nodejsTableModel = nodejsTableModel;
+    }
+
+    public DefaultTableModel getVariableTableModel() {
+        return variableTableModel;
+    }
+
+    public void setVariableTableModel(DefaultTableModel variableTableModel) {
+        this.variableTableModel = variableTableModel;
+    }
+
+    public void setBelowSplitPaneVertizontalModified(JSplitPane belowSplitPaneVertizontalModified) {
+        this.belowSplitPaneVertizontalModified = belowSplitPaneVertizontalModified;
+    }
+
     public JSplitPane getMainSlitPaneHorizontal() {
         return mainSlitPaneHorizontal;
     }
@@ -664,20 +704,45 @@ public class JScriptorPanel {
         this.prescriptPanel = prescriptPanel;
     }
 
-    public RawEditor getPrescriptTextArea() {
+//    public RawEditor getPrescriptTextArea() {
+//        return prescriptTextArea;
+//    }
+//
+//    public void setPrescriptTextArea(RawEditor prescriptTextArea) {
+//        this.prescriptTextArea = prescriptTextArea;
+//    }
+//
+//    public RawEditor getPrescriptRegexTextArea() {
+//        return prescriptRegexTextArea;
+//    }
+//
+//    public void setPrescriptRegexTextArea(RawEditor prescriptRegexTextArea) {
+//        this.prescriptRegexTextArea = prescriptRegexTextArea;
+//    }
+
+
+    public RSyntaxTextArea getPrescriptTextArea() {
         return prescriptTextArea;
     }
 
-    public void setPrescriptTextArea(RawEditor prescriptTextArea) {
+    public void setPrescriptTextArea(RSyntaxTextArea prescriptTextArea) {
         this.prescriptTextArea = prescriptTextArea;
     }
 
-    public RawEditor getPrescriptRegexTextArea() {
+    public RSyntaxTextArea getPrescriptRegexTextArea() {
         return prescriptRegexTextArea;
     }
 
-    public void setPrescriptRegexTextArea(RawEditor prescriptRegexTextArea) {
+    public void setPrescriptRegexTextArea(RSyntaxTextArea prescriptRegexTextArea) {
         this.prescriptRegexTextArea = prescriptRegexTextArea;
+    }
+
+    public void setPostscriptTextArea(RSyntaxTextArea postscriptTextArea) {
+        this.postscriptTextArea = postscriptTextArea;
+    }
+
+    public void setPostscriptRegexTextArea(RSyntaxTextArea postscriptRegexTextArea) {
+        this.postscriptRegexTextArea = postscriptRegexTextArea;
     }
 
     public JCheckBox getPrescriptIsNotModifyRequestFromProxyCheckbox() {
@@ -712,20 +777,29 @@ public class JScriptorPanel {
         this.postscriptPanel = postscriptPanel;
     }
 
-    public RawEditor getPostscriptTextArea() {
+//    public RawEditor getPostscriptTextArea() {
+//        return postscriptTextArea;
+//    }
+//
+//    public void setPostscriptTextArea(RawEditor postscriptTextArea) {
+//        this.postscriptTextArea = postscriptTextArea;
+//    }
+//
+//    public RawEditor getPostscriptRegexTextArea() {
+//        return postscriptRegexTextArea;
+//    }
+//
+//    public void setPostscriptRegexTextArea(RawEditor postscriptRegexTextArea) {
+//        this.postscriptRegexTextArea = postscriptRegexTextArea;
+//    }
+
+
+    public RSyntaxTextArea getPostscriptTextArea() {
         return postscriptTextArea;
     }
 
-    public void setPostscriptTextArea(RawEditor postscriptTextArea) {
-        this.postscriptTextArea = postscriptTextArea;
-    }
-
-    public RawEditor getPostscriptRegexTextArea() {
+    public RSyntaxTextArea getPostscriptRegexTextArea() {
         return postscriptRegexTextArea;
-    }
-
-    public void setPostscriptRegexTextArea(RawEditor postscriptRegexTextArea) {
-        this.postscriptRegexTextArea = postscriptRegexTextArea;
     }
 
     public JCheckBox getPostscriptIsNotModifyResponseFromProxyCheckBox() {
@@ -831,5 +905,43 @@ public class JScriptorPanel {
     public void setModifiedResponse(HttpResponseEditor modifiedResponse) {
         this.modifiedResponse = modifiedResponse;
     }
+    public JButton getRemoveLogButton() {
+        return removeLogButton;
+    }
 
+    public void setRemoveLogButton(JButton removeLogButton) {
+        this.removeLogButton = removeLogButton;
+    }
+
+    public HashMap<String, String> getLogRowHashMap() {
+        return logRowHashMap;
+    }
+
+    public void setLogRowHashMap(HashMap<String, String> logRowHashMap) {
+        this.logRowHashMap = logRowHashMap;
+    }
+
+    public JPanel getConfigurationPanel() {
+        return configurationPanel;
+    }
+
+    public void setConfigurationPanel(JPanel configurationPanel) {
+        this.configurationPanel = configurationPanel;
+    }
+
+    public JRadioButton getRunWithGraaljs() {
+        return runWithGraaljs;
+    }
+
+    public void setRunWithGraaljs(JRadioButton runWithGraaljs) {
+        this.runWithGraaljs = runWithGraaljs;
+    }
+
+    public JRadioButton getRunWithJavet() {
+        return runWithJavet;
+    }
+
+    public void setRunWithJavet(JRadioButton runWithJavet) {
+        this.runWithJavet = runWithJavet;
+    }
 }

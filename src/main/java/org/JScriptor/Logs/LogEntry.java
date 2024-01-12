@@ -2,10 +2,7 @@ package org.JScriptor.Logs;
 
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
-import java.net.MalformedURLException;
-import java.net.URL;
 
-/* loaded from: AutoPencrypt.jar:extension/Logs/LogEntry.class */
 public class LogEntry {
 
     private int id;

@@ -1,22 +1,16 @@
 package org.JScriptor;
 
 import burp.api.montoya.*;
+import burp.api.montoya.core.ByteArray;
 import burp.api.montoya.core.ToolType;
 import burp.api.montoya.http.handler.*;
-import burp.api.montoya.http.message.HttpRequestResponse;
-import burp.api.montoya.http.message.params.HttpParameterType;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
-import burp.api.montoya.http.message.params.HttpParameter;
-import burp.api.montoya.persistence.PersistedList;
-import jdk.jfr.StackTrace;
+import org.JScriptor.Helper.GraalJSEngine;
+import org.JScriptor.Helper.JavetEngine;
 import org.JScriptor.Logs.LogEntry;
 import org.JScriptor.UI.JScriptorPanel;
-import org.graalvm.polyglot.*;
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-import java.io.IOException;
-import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,16 +26,14 @@ public class HttpHandlerWithScript implements HttpHandler {
 
     @Override
     public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
-        if (this.jScriptorPanel.getPrescriptTextArea().isModified()){
-            this.api.persistence().extensionData().setByteArray("prescript_code", this.jScriptorPanel.getPrescriptTextArea().getContents());
-        }
+        this.api.persistence().extensionData().setByteArray("prescript_code", ByteArray.byteArray(this.jScriptorPanel.getPrescriptTextArea().getText()));
         if (this.jScriptorPanel.getSaveLogButton().isSelected() & (
                 this.jScriptorPanel.getRunPrescriptButton().isSelected() ||
                         this.jScriptorPanel.getRunPostscriptButton().isSelected())){
             updateLogTable(requestToBeSent.messageId(), requestToBeSent, null, null, null);
         }
         if (this.jScriptorPanel.getRunPrescriptButton().isSelected()){
-            String pre_script = new String(this.jScriptorPanel.getPrescriptTextArea().getContents().getBytes()).trim();
+            String pre_script = (this.jScriptorPanel.getPrescriptTextArea().getText()).trim();
             if (!pre_script.isEmpty()){
                 if (this.jScriptorPanel.getPrescriptIsInScopeCheckBox().isSelected()){
                     if (!this.api.scope().isInScope(requestToBeSent.url())){
@@ -49,7 +41,7 @@ public class HttpHandlerWithScript implements HttpHandler {
                     }
                 }
                 if (this.jScriptorPanel.getPrescriptIsMatchRegexCheckBox().isSelected()){
-                    Pattern pattern = Pattern.compile(new String(this.jScriptorPanel.getPostscriptRegexTextArea().getContents().getBytes()).trim());
+                    Pattern pattern = Pattern.compile((this.jScriptorPanel.getPostscriptRegexTextArea().getText()).trim());
                     Matcher matcher = pattern.matcher(requestToBeSent.toString());
                     if (!matcher.find()){
                         return RequestToBeSentAction.continueWith(requestToBeSent);
@@ -60,48 +52,17 @@ public class HttpHandlerWithScript implements HttpHandler {
                         return RequestToBeSentAction.continueWith(requestToBeSent);
                     }
                 }
-                try {
-                    Map<String, String> nodejsOptions = optionsNodejs();
-                    Context context = Context.newBuilder("js")
-                            .allowExperimentalOptions(true)
-                            .allowIO(true)
-                            .allowHostAccess(HostAccess.ALL)
-                            .allowAllAccess(true)
-                            .options(nodejsOptions)
-                            .build();
-
-                    context.getBindings("js").putMember("jsrequest", requestToBeSent);
-                    context.getBindings("js").putMember("jsvariable", this.api.persistence().extensionData());
-                    context.eval("js", "jsresult = {request:null, response:null}");
-                    context.eval("js", "window = {}");
-                    context = loadLibrary(context);
-
-                    Value jsResult = context.eval("js", pre_script);
-
-
-                    try{
-                        HttpRequest modifiedRequest = jsResult.getMember("request").as(HttpRequest.class);
-
-                        if (this.jScriptorPanel.getSaveLogButton().isSelected()){
-                            this.updateLogTable(requestToBeSent.messageId(), null, null,
-                                    modifiedRequest, null);
-//                            this.api.logging().logToOutput("Modified Request: \n" + modifiedRequest.toString());
-                        }
-
-                        return RequestToBeSentAction.continueWith(modifiedRequest);
-                    }catch (Exception e){
-                        this.api.logging().logToOutput(jsResult + "");
-                        return RequestToBeSentAction.continueWith(requestToBeSent);
-                    }
-
-                } catch (Exception e) {
-                    StackTraceElement[] stackTrace = e.getStackTrace();
-                    for (StackTraceElement st: stackTrace){
-                        this.api.logging().logToError(st.toString());
-                    }
-                    this.api.logging().logToError(e.getMessage());
+                if (this.jScriptorPanel.getRunWithGraaljs().isSelected()){
+                    GraalJSEngine graalJSEngine = new GraalJSEngine(this.api, this.jScriptorPanel, pre_script, null);
+                    return RequestToBeSentAction.continueWith(graalJSEngine.handleRequest(requestToBeSent));
+                }
+                if (this.jScriptorPanel.getRunWithJavet().isSelected()){
+                    JavetEngine javetEngine = new JavetEngine(this.api, this.jScriptorPanel, pre_script, null);
+                    return RequestToBeSentAction.continueWith(javetEngine.handleRequest(requestToBeSent));
 
                 }
+
+
             }
         }
         return RequestToBeSentAction.continueWith(requestToBeSent);
@@ -109,20 +70,18 @@ public class HttpHandlerWithScript implements HttpHandler {
 
     @Override
     public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
-        if (this.jScriptorPanel.getPostscriptTextArea().isModified()){
-            this.api.persistence().extensionData().setByteArray("postscript_code", this.jScriptorPanel.getPostscriptTextArea().getContents());
-        }
+        this.api.persistence().extensionData().setByteArray("postscript_code", ByteArray.byteArray(this.jScriptorPanel.getPostscriptTextArea().getText()));
         if (this.jScriptorPanel.getSaveLogButton().isSelected() & (
                 this.jScriptorPanel.getRunPrescriptButton().isSelected() ||
                         this.jScriptorPanel.getRunPostscriptButton().isSelected())){
             updateLogTable(responseReceived.messageId(), null, responseReceived, null, null);
         }
         if (this.jScriptorPanel.getRunPostscriptButton().isSelected()){
-            String post_script = new String(this.jScriptorPanel.getPostscriptTextArea().getContents().getBytes()).trim();
+            String post_script = (this.jScriptorPanel.getPostscriptTextArea().getText()).trim();
             if (!post_script.isEmpty()){
 
                 if (this.jScriptorPanel.getPostscriptIsMatchRegexCheckBox().isSelected()){
-                    Pattern pattern = Pattern.compile(new String(this.jScriptorPanel.getPostscriptRegexTextArea().getContents().getBytes()).trim());
+                    Pattern pattern = Pattern.compile((this.jScriptorPanel.getPostscriptRegexTextArea().getText()).trim());
                     Matcher matcher = pattern.matcher(responseReceived.toString());
                     if (!matcher.find()){
                         return ResponseReceivedAction.continueWith(responseReceived);
@@ -135,41 +94,14 @@ public class HttpHandlerWithScript implements HttpHandler {
                     }
                 }
 
-                try {
-                    Map<String, String> nodejsOptions = optionsNodejs();
-                    Context context = Context.newBuilder("js")
-                            .allowExperimentalOptions(true)
-                            .allowIO(true)
-                            .allowHostAccess(HostAccess.ALL)
-                            .allowAllAccess(true)
-                            .options(nodejsOptions)
-                            .build();
+                if (this.jScriptorPanel.getRunWithGraaljs().isSelected()){
+                    GraalJSEngine graalJSEngine = new GraalJSEngine(this.api, this.jScriptorPanel, null, post_script);
+                    return ResponseReceivedAction.continueWith(graalJSEngine.handleResponse(responseReceived));
+                }
+                if (this.jScriptorPanel.getRunWithJavet().isSelected()){
+                    JavetEngine javetEngine = new JavetEngine(this.api, this.jScriptorPanel, null, post_script);
+                    return ResponseReceivedAction.continueWith(javetEngine.handleResponse(responseReceived));
 
-                    context.getBindings("js").putMember("jsresponse", responseReceived);
-                    context.getBindings("js").putMember("jsvariable", this.api.persistence().extensionData());
-                    context.eval("js", "jsresult = {request:null, response:null}");
-                    context.eval("js", "window = {}");
-                    context = loadLibrary(context);
-
-                    Value jsResult = context.eval("js", post_script);
-
-                    try{
-                        HttpResponse modifiedResponse = jsResult.getMember("response").as(HttpResponse.class);
-
-
-                        if (this.jScriptorPanel.getSaveLogButton().isSelected()){
-                            this.updateLogTable(responseReceived.messageId(), null, null,
-                                    null, modifiedResponse);
-                        }
-
-                        return ResponseReceivedAction.continueWith(modifiedResponse);
-                    }catch (Exception e){
-                        this.api.logging().logToOutput("" + jsResult);
-                        return ResponseReceivedAction.continueWith(responseReceived);
-                    }
-
-                } catch (Exception e) {
-                    this.api.logging().logToError(e.getMessage().replaceAll("\\s+", " ").replaceAll("(?m)\\n{2,}", "\n"));
                 }
             }
         }
@@ -185,7 +117,6 @@ public class HttpHandlerWithScript implements HttpHandler {
             logEntry.setOriginalHttpRequest(originalRequest);
             this.jScriptorPanel.getLogEntryHashMap().put(requestid, logEntry);
 
-//            this.api.logging().logToError(requestid + " - " + originalRequest.url());
         }
         else{
             LogEntry logEntry = this.jScriptorPanel.getLogEntryHashMap().get(requestid);
@@ -215,28 +146,4 @@ public class HttpHandlerWithScript implements HttpHandler {
         }
     }
 
-    private Context loadLibrary(Context context) throws IOException {
-        ArrayList<Source> listPureLibrary = this.jScriptorPanel.getListPureLibray();
-
-        for (int i = 0; i < listPureLibrary.size(); i++){
-            context.eval(listPureLibrary.get(i));
-        }
-
-        return context;
-    }
-
-    private Map<String, String> optionsNodejs() throws IOException {
-        Map<String, String> options = new HashMap<>();
-
-        if (this.jScriptorPanel.getNodejsTableModel().getRowCount() > 0){
-            Object value = this.jScriptorPanel.getNodejsTableModel().getValueAt(0, 0);
-            String libraryPath = value.toString();
-
-
-            options.put("js.commonjs-require", "true");
-            options.put("js.commonjs-require-cwd", libraryPath);
-        }
-
-        return options;
-    }
 }
