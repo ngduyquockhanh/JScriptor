@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'org.JScriptor'
-version = '2.01'
+version = '2.02'
 
 repositories {
     mavenCentral()
