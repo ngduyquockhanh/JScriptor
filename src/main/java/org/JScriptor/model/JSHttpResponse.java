@@ -37,8 +37,11 @@ public class JSHttpResponse {
 
         for (String headerName : headerNames){
             HttpHeader httpHeader = HttpHeader.httpHeader(headerName, getHeaders().get(headerName));
-            modifiedResponse = modifiedResponse.withUpdatedHeader(httpHeader);
-            modifiedResponse = modifiedResponse.withAddedHeader(httpHeader);
+            if (httpResponse.hasHeader(headerName)){
+                modifiedResponse = modifiedResponse.withUpdatedHeader(httpHeader);
+            }else{
+                modifiedResponse = modifiedResponse.withAddedHeader(httpHeader);
+            }
         }
         modifiedResponse = modifiedResponse.withBody(getBody());
         modifiedResponse = modifiedResponse.withHttpVersion(getHttpVersion());
