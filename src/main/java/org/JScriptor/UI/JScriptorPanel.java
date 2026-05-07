@@ -42,6 +42,8 @@ public class JScriptorPanel {
     private JCheckBox saveLogButton;
     private JCheckBox runPrescriptButton;
     private JCheckBox runPostscriptButton;
+    private JCheckBox runPreBurpButton;
+    private JCheckBox runPostBurpButton;
 
     private JPanel configurationPanel;
 
@@ -62,6 +64,18 @@ public class JScriptorPanel {
     private RSyntaxTextArea postscriptRegexTextArea;
     private JCheckBox postscriptIsNotModifyResponseFromProxyCheckBox;
     private JCheckBox postscriptIsMatchRegexCheckBox;
+
+    private JPanel preBurpPanel;
+    private RSyntaxTextArea preBurpTextArea;
+    private RSyntaxTextArea preBurpRegexTextArea;
+    private JCheckBox preBurpIsInScopeCheckBox;
+    private JCheckBox preBurpIsMatchRegexCheckBox;
+
+    private JPanel postBurpPanel;
+    private RSyntaxTextArea postBurpTextArea;
+    private RSyntaxTextArea postBurpRegexTextArea;
+    private JCheckBox postBurpIsInScopeCheckBox;
+    private JCheckBox postBurpIsMatchRegexCheckBox;
 
 
     private JPanel variablePanel;
@@ -101,12 +115,19 @@ public class JScriptorPanel {
 
         this.removeLogButton = new JButton("Remove Log");
         this.saveLogButton = new JCheckBox("Save Log");
-        this.runPrescriptButton = new JCheckBox("Run Pre-script");
-        this.runPostscriptButton = new JCheckBox("Run Post-script");
+        this.runPreBurpButton = new JCheckBox("Run Script with Request Received");
+        this.runPrescriptButton = new JCheckBox("Run Script with Request to be Sent");
+        this.runPostscriptButton = new JCheckBox("Run Script with Response Received");
+        this.runPostBurpButton = new JCheckBox("Run Script with Response to be Sent");
+
+
+
         this.extensionButtonPanel.add(this.removeLogButton);
         this.extensionButtonPanel.add(this.saveLogButton);
+        this.extensionButtonPanel.add(this.runPreBurpButton);
         this.extensionButtonPanel.add(this.runPrescriptButton);
         this.extensionButtonPanel.add(this.runPostscriptButton);
+        this.extensionButtonPanel.add(this.runPostBurpButton);
 
         this.removeLogButton.addActionListener(new ActionListener() {
             @Override
@@ -123,8 +144,9 @@ public class JScriptorPanel {
         this.configurationPanel = new JPanel();
         this.configurationPanel.setLayout(new BoxLayout(this.configurationPanel, BoxLayout.Y_AXIS));
         this.runWithGraaljs = new JRadioButton("Run with Graaljs");
-        this.runWithGraaljs.setSelected(true);
+
         this.runWithJavet = new JRadioButton("Run with Javet");
+        this.runWithJavet.setSelected(true);
 
         ButtonGroup group = new ButtonGroup();
         group.add(this.runWithGraaljs);
@@ -135,8 +157,9 @@ public class JScriptorPanel {
 
         this.configurationPanel.add(jLabel1);
         this.configurationPanel.add(jLabel2);
-        this.configurationPanel.add(this.runWithGraaljs);
         this.configurationPanel.add(this.runWithJavet);
+        this.configurationPanel.add(this.runWithGraaljs);
+
 
 
         JTabbedPane outButtonPanel = new JTabbedPane();
@@ -155,7 +178,7 @@ public class JScriptorPanel {
         this.prescriptIsNotModifyRequestFromProxyCheckbox = new JCheckBox("Don't modified request from Proxy");
 
         this.prescriptPanel = createScriptPanel(this.prescriptTextArea, this.prescriptIsInScopeCheckBox,
-                this.prescriptIsMatchRegexCheckBox, this.prescriptRegexTextArea, this.prescriptIsNotModifyRequestFromProxyCheckbox);
+                this.prescriptIsMatchRegexCheckBox, this.prescriptRegexTextArea, this.prescriptIsNotModifyRequestFromProxyCheckbox, "prescript_code");
 
         this.postscriptTextArea = createRSyntaxTextArea();
         this.postscriptRegexTextArea = createRSyntaxTextArea();
@@ -163,14 +186,32 @@ public class JScriptorPanel {
         this.postscriptIsNotModifyResponseFromProxyCheckBox = new JCheckBox("Don't modified response from Proxy");
 
         this.postscriptPanel = createScriptPanel(this.postscriptTextArea, null,
-                this.postscriptIsMatchRegexCheckBox, this.postscriptRegexTextArea, this.postscriptIsNotModifyResponseFromProxyCheckBox);
+                this.postscriptIsMatchRegexCheckBox, this.postscriptRegexTextArea, this.postscriptIsNotModifyResponseFromProxyCheckBox, "postscript_code");
+
+        this.preBurpTextArea = createRSyntaxTextArea();
+        this.preBurpRegexTextArea = createRSyntaxTextArea();
+        this.preBurpIsInScopeCheckBox = new JCheckBox("In Scope Item");
+        this.preBurpIsMatchRegexCheckBox = new JCheckBox("Match regex");
+
+        this.preBurpPanel = createScriptPanel(this.preBurpTextArea, this.preBurpIsInScopeCheckBox,
+                this.preBurpIsMatchRegexCheckBox, this.preBurpRegexTextArea, null, "preburp_code");
+
+        this.postBurpTextArea = createRSyntaxTextArea();
+        this.postBurpRegexTextArea = createRSyntaxTextArea();
+        this.postBurpIsMatchRegexCheckBox = new JCheckBox("Match regex");
+
+        this.postBurpPanel = createScriptPanel(this.postBurpTextArea, null,
+                this.postBurpIsMatchRegexCheckBox, this.postBurpRegexTextArea, null, "postburp_code");
+
 
         this.variablePanel = createVariableTabPanel(this.variableTableModel);
         this.pureLibraryPanel = createSettingTabPanel(this.pureTableModel);
         this.nodejsLibraryPanel = createSettingNodejsTabPanel(this.nodejsTableModel);
 
-        this.extensionTabbedPane.add("Pre-script", this.prescriptPanel);
-        this.extensionTabbedPane.add("Post-script", this.postscriptPanel);
+        this.extensionTabbedPane.add("Request Received", this.preBurpPanel);
+        this.extensionTabbedPane.add("Request to be Sent", this.prescriptPanel);
+        this.extensionTabbedPane.add("Response Received", this.postscriptPanel);
+        this.extensionTabbedPane.add("Response to be Sent", this.postBurpPanel);
         this.extensionTabbedPane.add("Variable Setting", this.variablePanel);
         this.extensionTabbedPane.add("Pure Javascript Library", this.pureLibraryPanel);
         this.extensionTabbedPane.add("Nodejs Library", this.nodejsLibraryPanel);
@@ -335,7 +376,7 @@ public class JScriptorPanel {
 
 
     private JPanel createScriptPanel(RSyntaxTextArea script, JCheckBox inScopeCheckbox,
-                                     JCheckBox regexCheckbox, RSyntaxTextArea regexTextField, JCheckBox proxyCheckbox) {
+                                     JCheckBox regexCheckbox, RSyntaxTextArea regexTextField, JCheckBox proxyCheckbox, String persistenceKey) {
         JPanel panel = new JPanel(new BorderLayout());
 
         JLabel titleLabel = new JLabel("Run script for specific request");
@@ -349,16 +390,13 @@ public class JScriptorPanel {
         checkBoxPanel.add(titleLabel);
         if (inScopeCheckbox != null){
             checkBoxPanel.add(inScopeCheckbox);
-            if (this.montoyaApi.persistence().extensionData().getByteArray("prescript_code") != null){
-                script.setText(this.montoyaApi.persistence().extensionData().getByteArray("prescript_code").toString());
-            }
         }
-        else{
-            if (this.montoyaApi.persistence().extensionData().getByteArray("postscript_code") != null){
-                script.setText(this.montoyaApi.persistence().extensionData().getByteArray("postscript_code").toString());
-            }
+        if (this.montoyaApi.persistence().extensionData().getByteArray(persistenceKey) != null){
+            script.setText(this.montoyaApi.persistence().extensionData().getByteArray(persistenceKey).toString());
         }
-        checkBoxPanel.add(proxyCheckbox);
+        if (proxyCheckbox != null) {
+            checkBoxPanel.add(proxyCheckbox);
+        }
         checkBoxPanel.add(regexCheckbox);
 
 
@@ -943,5 +981,70 @@ public class JScriptorPanel {
 
     public void setRunWithJavet(JRadioButton runWithJavet) {
         this.runWithJavet = runWithJavet;
+    }
+
+    public JCheckBox getRunPreBurpButton() {
+        return runPreBurpButton;
+    }
+
+    public void setRunPreBurpButton(JCheckBox runPreBurpButton) {
+        this.runPreBurpButton = runPreBurpButton;
+    }
+
+    public JPanel getPreBurpPanel() {
+        return preBurpPanel;
+    }
+
+    public void setPreBurpPanel(JPanel preBurpPanel) {
+        this.preBurpPanel = preBurpPanel;
+    }
+
+    public RSyntaxTextArea getPreBurpTextArea() {
+        return preBurpTextArea;
+    }
+
+    public void setPreBurpTextArea(RSyntaxTextArea preBurpTextArea) {
+        this.preBurpTextArea = preBurpTextArea;
+    }
+
+    public RSyntaxTextArea getPreBurpRegexTextArea() {
+        return preBurpRegexTextArea;
+    }
+
+    public void setPreBurpRegexTextArea(RSyntaxTextArea preBurpRegexTextArea) {
+        this.preBurpRegexTextArea = preBurpRegexTextArea;
+    }
+
+
+    public JCheckBox getPreBurpIsInScopeCheckBox() {
+        return preBurpIsInScopeCheckBox;
+    }
+
+    public void setPreBurpIsInScopeCheckBox(JCheckBox preBurpIsInScopeCheckBox) {
+        this.preBurpIsInScopeCheckBox = preBurpIsInScopeCheckBox;
+    }
+
+    public JCheckBox getPreBurpIsMatchRegexCheckBox() {
+        return preBurpIsMatchRegexCheckBox;
+    }
+
+    public void setPreBurpIsMatchRegexCheckBox(JCheckBox preBurpIsMatchRegexCheckBox) {
+        this.preBurpIsMatchRegexCheckBox = preBurpIsMatchRegexCheckBox;
+    }
+
+    public JCheckBox getRunPostBurpButton(){
+        return runPostBurpButton;
+    }
+
+    public RSyntaxTextArea getPostBurpTextArea() {
+        return postBurpTextArea;
+    }
+
+    public RSyntaxTextArea getPostBurpRegexTextArea() {
+        return postBurpRegexTextArea;
+    }
+
+    public JCheckBox getPostBurpIsMatchRegexCheckBox() {
+        return postBurpIsMatchRegexCheckBox;
     }
 }

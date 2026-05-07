@@ -17,5 +17,11 @@ public class JScriptor implements  BurpExtension{
 
         HttpHandlerWithScript httpHandlerWithScript = new HttpHandlerWithScript(api, this.jScriptorPanel);
         api.http().registerHttpHandler(httpHandlerWithScript);
+
+        ProxyRequestHandlerWithScript proxyHandlerWithScript = new ProxyRequestHandlerWithScript(api, this.jScriptorPanel);
+        api.proxy().registerRequestHandler(proxyHandlerWithScript);
+
+        ProxyResponseHandlerWithScript proxyResponseHandlerWithScript = new ProxyResponseHandlerWithScript(api, this.jScriptorPanel);
+        api.proxy().registerResponseHandler(proxyResponseHandlerWithScript);
     }
 }

@@ -5,6 +5,8 @@ import burp.api.montoya.http.handler.HttpRequestToBeSent;
 import burp.api.montoya.http.handler.HttpResponseReceived;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
+import burp.api.montoya.proxy.http.InterceptedRequest;
+import burp.api.montoya.proxy.http.InterceptedResponse;
 import com.caoccao.javet.exceptions.JavetException;
 import com.caoccao.javet.interop.NodeRuntime;
 import com.caoccao.javet.interop.V8Host;
@@ -24,14 +26,148 @@ import java.io.IOException;
 public class JavetEngine {
     private MontoyaApi montoyaApi;
     private JScriptorPanel jScriptorPanel;
+    private String pre_burp;
     private String pre_script;
     private String post_script;
+    private String post_burp;
 
-    public JavetEngine(MontoyaApi montoyaApi, JScriptorPanel jScriptorPanel, String pre_script, String post_script) {
+    public JavetEngine(MontoyaApi montoyaApi, JScriptorPanel jScriptorPanel, String pre_script, String post_script, String pre_burp, String post_burp) {
         this.montoyaApi = montoyaApi;
         this.jScriptorPanel = jScriptorPanel;
         this.pre_script = pre_script;
         this.post_script = post_script;
+        this.pre_burp = pre_burp;
+        this.post_burp = post_burp;
+    }
+
+    public HttpRequest handleProxyRequest(InterceptedRequest requestToBeSent){
+        try {
+            try (NodeRuntime nodeRuntime = loadLibrary(V8Host.getNodeInstance().createV8Runtime())) {
+
+                JSHttpRequest jsHttpRequest = new JSHttpRequest();
+                jsHttpRequest.loadValue(requestToBeSent);
+                ObjectMapper objectMapper = new ObjectMapper();
+                String jsRequestString = objectMapper.writeValueAsString(jsHttpRequest);
+
+                JSVariableList variableList = new JSVariableList();
+                variableList.loadValue(this.montoyaApi);
+                String jsVariableString = objectMapper.writeValueAsString(variableList);
+
+                JSLogger jsLogger = new JSLogger();
+                String jsLoggerString = objectMapper.writeValueAsString(jsLogger);
+
+                nodeRuntime.getGlobalObject().set("jsvariables", jsVariableString);
+                nodeRuntime.getGlobalObject().set("jsrequest", jsRequestString);
+                nodeRuntime.getGlobalObject().set("jslogger", jsLoggerString);
+
+                nodeRuntime.getExecutor("jsrequest = JSON.parse(jsrequest);").executeVoid();
+                nodeRuntime.getExecutor("jsvariables = JSON.parse(jsvariables);").executeVoid();
+                nodeRuntime.getExecutor("jslogger = JSON.parse(jslogger);").executeVoid();
+                nodeRuntime.getExecutor("var jsresult = {request:null};").executeVoid();
+                nodeRuntime.getExecutor(pre_burp).executeVoid();
+
+                nodeRuntime.getExecutor("jsvariables = JSON.stringify(jsvariables);").executeVoid();
+                nodeRuntime.getExecutor("jslogger = JSON.stringify(jslogger);").executeVoid();
+
+                String jsVariableJSON =  nodeRuntime.getGlobalObject().get("jsvariables").toString();
+                variableList = objectMapper.readValue(jsVariableJSON, JSVariableList.class);
+                variableList.saveVariable(this.montoyaApi);
+
+                String jsLoggerJSON =  nodeRuntime.getGlobalObject().get("jslogger").toString();
+                jsLogger = objectMapper.readValue(jsLoggerJSON, JSLogger.class);
+                jsLogger.printLogs(this.montoyaApi);
+
+                try {
+                    nodeRuntime.getExecutor("jsresult.request = JSON.stringify(jsresult.request);").executeVoid();
+                    nodeRuntime.getExecutor("var jsresult = jsresult.request").executeVoid();
+                    String jsRequestJSON = nodeRuntime.getGlobalObject().get("jsresult").toString();
+
+                    jsHttpRequest = objectMapper.readValue(jsRequestJSON, JSHttpRequest.class);
+
+                    HttpRequest modifiedRequest = jsHttpRequest.getHttpRequest(requestToBeSent);
+
+                    return modifiedRequest;
+                } catch (Exception e) {
+                    this.montoyaApi.logging().logToError(e.getMessage());
+                    return requestToBeSent;
+                }
+            }catch (Exception e) {
+                this.montoyaApi.logging().logToError(e.getMessage());
+                return requestToBeSent;
+            }
+        } catch (Exception e) {
+            this.montoyaApi.logging().logToError(e.getMessage());
+            return requestToBeSent;
+        }
+    }
+
+    public HttpResponse handleProxyResponse(InterceptedResponse responseReceived){
+        try {
+            try (NodeRuntime nodeRuntime = loadLibrary(V8Host.getNodeInstance().createV8Runtime())) {
+
+                JSHttpResponse jsHttpResponse = new JSHttpResponse();
+                jsHttpResponse.loadValue(responseReceived);
+                ObjectMapper objectMapper = new ObjectMapper();
+                String jsResponseString = objectMapper.writeValueAsString(jsHttpResponse);
+
+                JSHttpRequest jsHttpRequest = new JSHttpRequest();
+                HttpRequest initRequest = responseReceived.initiatingRequest();
+                jsHttpRequest.loadValue(initRequest);
+                String jsRequestString = objectMapper.writeValueAsString(jsHttpRequest);
+
+                JSVariableList variableList = new JSVariableList();
+                variableList.loadValue(this.montoyaApi);
+                String jsVariableString = objectMapper.writeValueAsString(variableList);
+
+                JSLogger jsLogger = new JSLogger();
+                String jsLoggerString = objectMapper.writeValueAsString(jsLogger);
+
+                nodeRuntime.getGlobalObject().set("jsvariables", jsVariableString);
+                nodeRuntime.getGlobalObject().set("jsrequest", jsRequestString);
+                nodeRuntime.getGlobalObject().set("jsresponse", jsResponseString);
+                nodeRuntime.getGlobalObject().set("jslogger", jsLoggerString);
+
+                nodeRuntime.getExecutor("jsrequest = JSON.parse(jsrequest);").executeVoid();
+                nodeRuntime.getExecutor("jsresponse = JSON.parse(jsresponse);").executeVoid();
+                nodeRuntime.getExecutor("jsvariables = JSON.parse(jsvariables);").executeVoid();
+                nodeRuntime.getExecutor("jslogger = JSON.parse(jslogger);").executeVoid();
+                nodeRuntime.getExecutor("var jsresult = {response:null};").executeVoid();
+
+                nodeRuntime.getExecutor(post_burp).executeVoid();
+
+                nodeRuntime.getExecutor("jsvariables = JSON.stringify(jsvariables);").executeVoid();
+                nodeRuntime.getExecutor("jslogger = JSON.stringify(jslogger);").executeVoid();
+
+                String jsVariableJSON = nodeRuntime.getGlobalObject().get("jsvariables").toString();
+                variableList = objectMapper.readValue(jsVariableJSON, JSVariableList.class);
+                variableList.saveVariable(this.montoyaApi);
+
+                String jsLoggerJSON = nodeRuntime.getGlobalObject().get("jslogger").toString();
+                jsLogger = objectMapper.readValue(jsLoggerJSON, JSLogger.class);
+                jsLogger.printLogs(this.montoyaApi);
+
+
+                try {
+                    nodeRuntime.getExecutor("jsresult.response = JSON.stringify(jsresult.response);").executeVoid();
+
+                    nodeRuntime.getExecutor("var jsresult = jsresult.response").executeVoid();
+                    String jsResponseJSON = nodeRuntime.getGlobalObject().get("jsresult").toString();
+
+                    jsHttpResponse = objectMapper.readValue(jsResponseJSON, JSHttpResponse.class);
+                    HttpResponse modifiedResponse = jsHttpResponse.getHttpResponse(responseReceived);
+
+                    return modifiedResponse;
+
+                } catch (Exception e) {
+                    this.montoyaApi.logging().logToError(e.getMessage());
+                    return responseReceived;
+                }
+            }
+
+        } catch (Exception e) {
+            this.montoyaApi.logging().logToError(e.getMessage());
+            return responseReceived;
+        }
     }
 
     public HttpRequest handleRequest(HttpRequestToBeSent requestToBeSent){
@@ -108,6 +244,11 @@ public class JavetEngine {
                 ObjectMapper objectMapper = new ObjectMapper();
                 String jsResponseString = objectMapper.writeValueAsString(jsHttpResponse);
 
+                JSHttpRequest jsHttpRequest = new JSHttpRequest();
+                HttpRequest initRequest = responseReceived.initiatingRequest();
+                jsHttpRequest.loadValue(initRequest);
+                String jsRequestString = objectMapper.writeValueAsString(jsHttpRequest);
+
                 JSVariableList variableList = new JSVariableList();
                 variableList.loadValue(this.montoyaApi);
                 String jsVariableString = objectMapper.writeValueAsString(variableList);
@@ -116,9 +257,11 @@ public class JavetEngine {
                 String jsLoggerString = objectMapper.writeValueAsString(jsLogger);
 
                 nodeRuntime.getGlobalObject().set("jsvariables", jsVariableString);
+                nodeRuntime.getGlobalObject().set("jsrequest", jsRequestString);
                 nodeRuntime.getGlobalObject().set("jsresponse", jsResponseString);
                 nodeRuntime.getGlobalObject().set("jslogger", jsLoggerString);
 
+                nodeRuntime.getExecutor("jsrequest = JSON.parse(jsrequest);").executeVoid();
                 nodeRuntime.getExecutor("jsresponse = JSON.parse(jsresponse);").executeVoid();
                 nodeRuntime.getExecutor("jsvariables = JSON.parse(jsvariables);").executeVoid();
                 nodeRuntime.getExecutor("jslogger = JSON.parse(jslogger);").executeVoid();

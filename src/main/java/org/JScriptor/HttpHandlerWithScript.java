@@ -41,7 +41,7 @@ public class HttpHandlerWithScript implements HttpHandler {
                     }
                 }
                 if (this.jScriptorPanel.getPrescriptIsMatchRegexCheckBox().isSelected()){
-                    Pattern pattern = Pattern.compile((this.jScriptorPanel.getPostscriptRegexTextArea().getText()).trim());
+                    Pattern pattern = Pattern.compile((this.jScriptorPanel.getPrescriptRegexTextArea().getText()).trim());
                     Matcher matcher = pattern.matcher(requestToBeSent.toString());
                     if (!matcher.find()){
                         return RequestToBeSentAction.continueWith(requestToBeSent);
@@ -53,11 +53,11 @@ public class HttpHandlerWithScript implements HttpHandler {
                     }
                 }
                 if (this.jScriptorPanel.getRunWithGraaljs().isSelected()){
-                    GraalJSEngine graalJSEngine = new GraalJSEngine(this.api, this.jScriptorPanel, pre_script, null);
+                    GraalJSEngine graalJSEngine = new GraalJSEngine(this.api, this.jScriptorPanel, pre_script, null, null, null);
                     return RequestToBeSentAction.continueWith(graalJSEngine.handleRequest(requestToBeSent));
                 }
                 if (this.jScriptorPanel.getRunWithJavet().isSelected()){
-                    JavetEngine javetEngine = new JavetEngine(this.api, this.jScriptorPanel, pre_script, null);
+                    JavetEngine javetEngine = new JavetEngine(this.api, this.jScriptorPanel, pre_script, null, null, null);
                     return RequestToBeSentAction.continueWith(javetEngine.handleRequest(requestToBeSent));
 
                 }
@@ -95,11 +95,11 @@ public class HttpHandlerWithScript implements HttpHandler {
                 }
 
                 if (this.jScriptorPanel.getRunWithGraaljs().isSelected()){
-                    GraalJSEngine graalJSEngine = new GraalJSEngine(this.api, this.jScriptorPanel, null, post_script);
+                    GraalJSEngine graalJSEngine = new GraalJSEngine(this.api, this.jScriptorPanel, null, post_script,null, null);
                     return ResponseReceivedAction.continueWith(graalJSEngine.handleResponse(responseReceived));
                 }
                 if (this.jScriptorPanel.getRunWithJavet().isSelected()){
-                    JavetEngine javetEngine = new JavetEngine(this.api, this.jScriptorPanel, null, post_script);
+                    JavetEngine javetEngine = new JavetEngine(this.api, this.jScriptorPanel, null, post_script, null, null);
                     return ResponseReceivedAction.continueWith(javetEngine.handleResponse(responseReceived));
 
                 }

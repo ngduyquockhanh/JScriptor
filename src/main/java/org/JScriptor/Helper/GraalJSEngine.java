@@ -5,6 +5,8 @@ import burp.api.montoya.http.handler.HttpRequestToBeSent;
 import burp.api.montoya.http.handler.HttpResponseReceived;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
+import burp.api.montoya.proxy.http.InterceptedRequest;
+import burp.api.montoya.proxy.http.InterceptedResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.JScriptor.Logs.LogEntry;
 import org.JScriptor.UI.JScriptorPanel;
@@ -26,14 +28,161 @@ import java.util.Map;
 public class GraalJSEngine {
     private MontoyaApi montoyaApi;
     private JScriptorPanel jScriptorPanel;
+    private String pre_burp;
+    private String post_burp;
     private String pre_script;
     private String post_script;
 
-    public GraalJSEngine(MontoyaApi montoyaApi, JScriptorPanel jScriptorPanel, String pre_script, String post_script) {
+    public GraalJSEngine(MontoyaApi montoyaApi, JScriptorPanel jScriptorPanel, String pre_script, String post_script, String pre_burp, String post_burp) {
         this.montoyaApi = montoyaApi;
         this.jScriptorPanel = jScriptorPanel;
         this.pre_script = pre_script;
         this.post_script = post_script;
+        this.pre_burp = pre_burp;
+        this.post_burp = post_burp;
+    }
+
+    public HttpRequest handleProxyRequest(InterceptedRequest requestToBeSent){
+        try {
+            JSHttpRequest jsHttpRequest = new JSHttpRequest();
+            jsHttpRequest.loadValue(requestToBeSent);
+            ObjectMapper objectMapper = new ObjectMapper();
+            String jsRequestString = objectMapper.writeValueAsString(jsHttpRequest);
+
+            JSVariableList variableList = new JSVariableList();
+            variableList.loadValue(this.montoyaApi);
+            String jsVariableString = objectMapper.writeValueAsString(variableList);
+
+            JSLogger jsLogger = new JSLogger();
+            String jsLoggerString = objectMapper.writeValueAsString(jsLogger);
+
+            Map<String, String> nodejsOptions = optionsNodejs();
+            Context context = Context.newBuilder("js")
+                    .allowExperimentalOptions(true)
+                    .allowIO(true)
+                    .allowHostAccess(HostAccess.ALL)
+                    .allowAllAccess(true)
+                    .options(nodejsOptions)
+                    .build();
+
+            context.getBindings("js").putMember("jsvariables", jsVariableString);
+            context.getBindings("js").putMember("jsrequest", jsRequestString);
+            context.getBindings("js").putMember("jslogger", jsLoggerString);
+            context.eval("js", "jsvariables = JSON.parse(jsvariables)");
+            context.eval("js", "jsrequest = JSON.parse(jsrequest)");
+            context.eval("js", "jslogger = JSON.parse(jslogger)");
+            context.eval("js", "jsresult = {request:null}");
+            context.eval("js", "window = {}");
+            context = loadLibrary(context);
+
+            context.eval("js", pre_burp);
+
+            context.eval("js", "jslogger = JSON.stringify(jslogger);");
+            context.eval("js", "jsvariables = JSON.stringify(jsvariables);");
+
+            String jsVariableJSON = context.getBindings("js").getMember("jsvariables").asString();
+            variableList = objectMapper.readValue(jsVariableJSON, JSVariableList.class);
+            variableList.saveVariable(this.montoyaApi);
+
+            String jsLoggerJSON = context.getBindings("js").getMember("jslogger").asString();
+            jsLogger = objectMapper.readValue(jsLoggerJSON, JSLogger.class);
+            jsLogger.printLogs(this.montoyaApi);
+
+            try{
+
+                context.eval("js", "jsresult.request = JSON.stringify(jsresult.request);");
+
+                Value jsResult = context.getBindings("js").getMember("jsresult");
+                String jsRequestJSON = jsResult.getMember("request").asString();
+                jsHttpRequest = objectMapper.readValue(jsRequestJSON, JSHttpRequest.class);
+                HttpRequest modifiedRequest = jsHttpRequest.getHttpRequest(requestToBeSent);
+
+//                if (this.jScriptorPanel.getSaveLogButton().isSelected()){
+//                    this.updateLogTable(requestToBeSent.messageId(), null, null,
+//                            modifiedRequest, null);
+//                }
+
+                return modifiedRequest;
+            }catch (Exception e){
+                this.montoyaApi.logging().logToError(e.getMessage());
+                return requestToBeSent;
+            }
+
+        } catch (Exception e) {
+            this.montoyaApi.logging().logToError(e.getMessage());
+            return requestToBeSent;
+        }
+    }
+
+    public HttpResponse handleProxyResponse(InterceptedResponse responseReceived){
+        try {
+            JSHttpResponse jsHttpResponse = new JSHttpResponse();
+            jsHttpResponse.loadValue(responseReceived);
+            ObjectMapper objectMapper = new ObjectMapper();
+            String jsResponseString = objectMapper.writeValueAsString(jsHttpResponse);
+
+            JSVariableList variableList = new JSVariableList();
+            variableList.loadValue(this.montoyaApi);
+            String jsVariableString = objectMapper.writeValueAsString(variableList);
+
+            JSLogger jsLogger = new JSLogger();
+            String jsLoggerString = objectMapper.writeValueAsString(jsLogger);
+
+            Map<String, String> nodejsOptions = optionsNodejs();
+            Context context = Context.newBuilder("js")
+                    .allowExperimentalOptions(true)
+                    .allowIO(true)
+                    .allowHostAccess(HostAccess.ALL)
+                    .allowAllAccess(true)
+                    .options(nodejsOptions)
+                    .build();
+
+            context.getBindings("js").putMember("jsvariables", jsVariableString);
+            context.getBindings("js").putMember("jsresponse", jsResponseString);
+            context.getBindings("js").putMember("jslogger", jsLoggerString);
+            context.eval("js", "jsvariables = JSON.parse(jsvariables)");
+            context.eval("js", "jsresponse = JSON.parse(jsresponse)");
+            context.eval("js", "jslogger = JSON.parse(jslogger)");
+            context.eval("js", "jsresult = {response:null}");
+            context.eval("js", "window = {}");
+            context = loadLibrary(context);
+
+            context.eval("js", post_burp);
+
+            context.eval("js", "jsvariables = JSON.stringify(jsvariables);");
+            context.eval("js", "jslogger = JSON.stringify(jslogger);");
+
+            String jsVariableJSON = context.getBindings("js").getMember("jsvariables").asString();
+            variableList = objectMapper.readValue(jsVariableJSON, JSVariableList.class);
+            variableList.saveVariable(this.montoyaApi);
+
+            String jsLoggerJSON = context.getBindings("js").getMember("jslogger").asString();
+            jsLogger = objectMapper.readValue(jsLoggerJSON, JSLogger.class);
+            jsLogger.printLogs(this.montoyaApi);
+
+            try{
+                context.eval("js", "jsresult.response = JSON.stringify(jsresult.response);");
+
+                Value jsResult = context.getBindings("js").getMember("jsresult");
+                String jsResponseJSON = jsResult.getMember("response").as(String.class);
+                jsHttpResponse = objectMapper.readValue(jsResponseJSON, JSHttpResponse.class);
+                HttpResponse modifiedResponse = jsHttpResponse.getHttpResponse(responseReceived);
+
+                if (this.jScriptorPanel.getSaveLogButton().isSelected()){
+                    this.updateLogTable(responseReceived.messageId(), null, null,
+                            null, modifiedResponse);
+                }
+
+                return modifiedResponse;
+            }catch (Exception e){
+                this.montoyaApi.logging().logToError(e.getMessage());
+                return responseReceived;
+            }
+
+        } catch (Exception e) {
+            this.montoyaApi.logging().logToError(e.getMessage());
+            return responseReceived;
+        }
     }
 
     public HttpRequest handleRequest(HttpRequestToBeSent requestToBeSent){
