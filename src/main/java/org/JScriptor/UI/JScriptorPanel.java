@@ -7,6 +7,7 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.text.JTextComponent;
 
 import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.core.ByteArray;
 import burp.api.montoya.persistence.PersistedList;
 import burp.api.montoya.ui.editor.HttpRequestEditor;
 import burp.api.montoya.ui.editor.HttpResponseEditor;
@@ -78,6 +79,21 @@ public class JScriptorPanel {
     private JCheckBox postBurpIsMatchRegexCheckBox;
 
 
+    private JPanel webSocketPanel;
+    private JTabbedPane webSocketTabbedPane;
+    private ScriptSlot wsReceivedSlot;
+    private ScriptSlot wsToBeSentSlot;
+    private ScriptSlot wsAllToolsSlot;
+    private JCheckBox runWsReceivedButton;
+    private JCheckBox runWsToBeSentButton;
+    private JCheckBox runWsAllToolsButton;
+
+    private JPanel wsEditorPanel;
+    private RSyntaxTextArea wsDecodeTextArea;
+    private RSyntaxTextArea wsEncodeTextArea;
+    private JCheckBox wsEditorEnabledCheckBox;
+    private JCheckBox wsEditorIsBinaryCheckBox;
+
     private JPanel variablePanel;
     private JPanel pureLibraryPanel;
     private JPanel nodejsLibraryPanel;
@@ -111,7 +127,7 @@ public class JScriptorPanel {
         this.extensionPanel.setLayout(new BoxLayout(this.extensionPanel,BoxLayout.Y_AXIS));
 
         this.extensionButtonPanel = new JPanel();
-        this.extensionButtonPanel.setLayout(new BoxLayout(this.extensionButtonPanel, BoxLayout.Y_AXIS));
+        this.extensionButtonPanel.setLayout(new BoxLayout(this.extensionButtonPanel, BoxLayout.X_AXIS));
 
         this.removeLogButton = new JButton("Remove Log");
         this.saveLogButton = new JCheckBox("Save Log");
@@ -120,14 +136,32 @@ public class JScriptorPanel {
         this.runPostscriptButton = new JCheckBox("Run Script with Response Received");
         this.runPostBurpButton = new JCheckBox("Run Script with Response to be Sent");
 
+        this.runWsReceivedButton = new JCheckBox("Run Script with WS Message Received");
+        this.runWsToBeSentButton = new JCheckBox("Run Script with WS Message to be Sent");
+        this.runWsAllToolsButton = new JCheckBox("Run Script with WS Message (All Tools)");
+        this.wsEditorEnabledCheckBox = new JCheckBox("Enable JScriptor WebSocket message editor");
+        this.wsEditorIsBinaryCheckBox = new JCheckBox("Editor payload is binary (base64)");
 
+        JPanel logColumn = createButtonColumn("Log");
+        logColumn.add(this.removeLogButton);
+        logColumn.add(this.saveLogButton);
 
-        this.extensionButtonPanel.add(this.removeLogButton);
-        this.extensionButtonPanel.add(this.saveLogButton);
-        this.extensionButtonPanel.add(this.runPreBurpButton);
-        this.extensionButtonPanel.add(this.runPrescriptButton);
-        this.extensionButtonPanel.add(this.runPostscriptButton);
-        this.extensionButtonPanel.add(this.runPostBurpButton);
+        JPanel httpColumn = createButtonColumn("HTTP");
+        httpColumn.add(this.runPreBurpButton);
+        httpColumn.add(this.runPrescriptButton);
+        httpColumn.add(this.runPostscriptButton);
+        httpColumn.add(this.runPostBurpButton);
+
+        JPanel webSocketColumn = createButtonColumn("WebSocket");
+        webSocketColumn.add(this.runWsReceivedButton);
+        webSocketColumn.add(this.runWsToBeSentButton);
+        webSocketColumn.add(this.runWsAllToolsButton);
+        webSocketColumn.add(this.wsEditorEnabledCheckBox);
+
+        this.extensionButtonPanel.add(logColumn);
+        this.extensionButtonPanel.add(httpColumn);
+        this.extensionButtonPanel.add(webSocketColumn);
+        this.extensionButtonPanel.add(Box.createHorizontalGlue());
 
         this.removeLogButton.addActionListener(new ActionListener() {
             @Override
@@ -204,32 +238,43 @@ public class JScriptorPanel {
                 this.postBurpIsMatchRegexCheckBox, this.postBurpRegexTextArea, null, "postburp_code");
 
 
+        this.wsReceivedSlot = createWebSocketSlot("WS Message Received", "ws_received_code",
+                this.runWsReceivedButton, true, false);
+        this.wsToBeSentSlot = createWebSocketSlot("WS Message to be Sent", "ws_tobesent_code",
+                this.runWsToBeSentButton, true, false);
+        this.wsAllToolsSlot = createWebSocketSlot("WS Message (All Tools)", "ws_alltools_code",
+                this.runWsAllToolsButton, true, true);
+        this.wsEditorPanel = createWebSocketEditorPanel();
+
         this.variablePanel = createVariableTabPanel(this.variableTableModel);
         this.pureLibraryPanel = createSettingTabPanel(this.pureTableModel);
         this.nodejsLibraryPanel = createSettingNodejsTabPanel(this.nodejsTableModel);
 
-        this.extensionTabbedPane.add("Request Received", this.preBurpPanel);
-        this.extensionTabbedPane.add("Request to be Sent", this.prescriptPanel);
-        this.extensionTabbedPane.add("Response Received", this.postscriptPanel);
-        this.extensionTabbedPane.add("Response to be Sent", this.postBurpPanel);
+        JTabbedPane httpTabbedPane = new JTabbedPane();
+        httpTabbedPane.add("Request Received", this.preBurpPanel);
+        httpTabbedPane.add("Request to be Sent", this.prescriptPanel);
+        httpTabbedPane.add("Response Received", this.postscriptPanel);
+        httpTabbedPane.add("Response to be Sent", this.postBurpPanel);
+
+        this.webSocketTabbedPane = new JTabbedPane();
+        this.webSocketTabbedPane.add("Message Received", this.wsReceivedSlot.getPanel());
+        this.webSocketTabbedPane.add("Message to be Sent", this.wsToBeSentSlot.getPanel());
+        this.webSocketTabbedPane.add("Message (All Tools)", this.wsAllToolsSlot.getPanel());
+        this.webSocketTabbedPane.add("Message Editor", this.wsEditorPanel);
+
+        this.webSocketPanel = new JPanel(new BorderLayout());
+        this.webSocketPanel.add(this.webSocketTabbedPane, BorderLayout.CENTER);
+
+        this.extensionTabbedPane.add("HTTP", httpTabbedPane);
+        this.extensionTabbedPane.add("WebSocket", this.webSocketPanel);
         this.extensionTabbedPane.add("Variable Setting", this.variablePanel);
         this.extensionTabbedPane.add("Pure Javascript Library", this.pureLibraryPanel);
         this.extensionTabbedPane.add("Nodejs Library", this.nodejsLibraryPanel);
 
         this.extensionTabbedPane.addChangeListener(new ChangeListener() { //add the Listener
             public void stateChanged(ChangeEvent e) {
-
-                if(extensionTabbedPane.getSelectedIndex()==2)
-                {
-                    variableTableModel.setRowCount(0);
-                    Set<String> listKey = montoyaApi.persistence().extensionData().stringKeys();
-                    for (String key: listKey){
-                        if (!key.equals("node_modules")){
-                            String value = montoyaApi.persistence().extensionData().getString(key);
-                            variableTableModel.addRow(new Object[]{key, value});
-                        }
-
-                    }
+                if (extensionTabbedPane.getSelectedComponent() == variablePanel) {
+                    refreshVariableTable();
                 }
             }
         });
@@ -288,6 +333,130 @@ public class JScriptorPanel {
         UIManager.put("RTextAreaUI.actionMap", null);
         UIManager.put("RTextAreaUI.inputMap", null);
         return rSyntaxTextArea;
+    }
+
+    private JPanel createButtonColumn(String title) {
+        JPanel column = new JPanel();
+        column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
+        column.setBorder(BorderFactory.createTitledBorder(title));
+        column.setAlignmentY(Component.TOP_ALIGNMENT);
+        return column;
+    }
+
+    private void refreshVariableTable() {
+        this.variableTableModel.setRowCount(0);
+        Set<String> listKey = this.montoyaApi.persistence().extensionData().stringKeys();
+        for (String key : listKey) {
+            if (!key.equals("node_modules")) {
+                String value = this.montoyaApi.persistence().extensionData().getString(key);
+                this.variableTableModel.addRow(new Object[]{key, value});
+            }
+        }
+    }
+
+    private void restoreScript(RSyntaxTextArea textArea, String persistenceKey) {
+        ByteArray stored = this.montoyaApi.persistence().extensionData().getByteArray(persistenceKey);
+        if (stored != null) {
+            textArea.setText(stored.toString());
+        }
+    }
+
+    /**
+     * Saves the script as it is typed. The HTTP slots persist their code from
+     * inside the traffic handlers instead, which would be far too often for
+     * WebSocket traffic.
+     */
+    private void persistOnEdit(RSyntaxTextArea textArea, String persistenceKey) {
+        textArea.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                save();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                save();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                save();
+            }
+
+            private void save() {
+                montoyaApi.persistence().extensionData().setByteArray(persistenceKey,
+                        ByteArray.byteArray(textArea.getText()));
+            }
+        });
+    }
+
+    private ScriptSlot createWebSocketSlot(String name, String persistenceKey, JCheckBox enabledCheckBox,
+                                           boolean withInScope, boolean withNotFromProxy) {
+        RSyntaxTextArea scriptTextArea = createRSyntaxTextArea();
+        RSyntaxTextArea regexTextArea = createRSyntaxTextArea();
+
+        restoreScript(scriptTextArea, persistenceKey);
+        persistOnEdit(scriptTextArea, persistenceKey);
+
+        JCheckBox inScopeCheckBox = withInScope ? new JCheckBox("In Scope Item") : null;
+        JCheckBox matchRegexCheckBox = new JCheckBox("Match regex");
+        JCheckBox notFromProxyCheckBox = withNotFromProxy ? new JCheckBox("Don't modify message from Proxy") : null;
+
+        JPanel checkBoxPanel = new JPanel();
+        checkBoxPanel.setLayout(new BoxLayout(checkBoxPanel, BoxLayout.Y_AXIS));
+        checkBoxPanel.add(new JLabel("Run script for specific message"));
+        if (inScopeCheckBox != null) {
+            checkBoxPanel.add(inScopeCheckBox);
+        }
+        if (notFromProxyCheckBox != null) {
+            checkBoxPanel.add(notFromProxyCheckBox);
+        }
+        checkBoxPanel.add(matchRegexCheckBox);
+
+        JPanel scopePanel = new JPanel(new BorderLayout());
+        scopePanel.add(checkBoxPanel, BorderLayout.NORTH);
+        scopePanel.add(new RTextScrollPane(regexTextArea), BorderLayout.CENTER);
+
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.add(new RTextScrollPane(scriptTextArea), BorderLayout.CENTER);
+        panel.add(scopePanel, BorderLayout.EAST);
+
+        return new ScriptSlot(name, persistenceKey, panel, scriptTextArea, regexTextArea, enabledCheckBox,
+                inScopeCheckBox, matchRegexCheckBox, notFromProxyCheckBox);
+    }
+
+    private JPanel createWebSocketEditorPanel() {
+        this.wsDecodeTextArea = createRSyntaxTextArea();
+        this.wsEncodeTextArea = createRSyntaxTextArea();
+
+        restoreScript(this.wsDecodeTextArea, "ws_decode_code");
+        persistOnEdit(this.wsDecodeTextArea, "ws_decode_code");
+        restoreScript(this.wsEncodeTextArea, "ws_encode_code");
+        persistOnEdit(this.wsEncodeTextArea, "ws_encode_code");
+
+        JPanel decodePanel = new JPanel(new BorderLayout());
+        decodePanel.add(new JLabel("Decode - runs when a message is opened in the editor"), BorderLayout.NORTH);
+        decodePanel.add(new RTextScrollPane(this.wsDecodeTextArea), BorderLayout.CENTER);
+
+        JPanel encodePanel = new JPanel(new BorderLayout());
+        encodePanel.add(new JLabel("Encode - runs when the edited message is sent"), BorderLayout.NORTH);
+        encodePanel.add(new RTextScrollPane(this.wsEncodeTextArea), BorderLayout.CENTER);
+
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        splitPane.setLeftComponent(decodePanel);
+        splitPane.setRightComponent(encodePanel);
+        splitPane.setResizeWeight(0.5);
+
+        JPanel optionPanel = new JPanel();
+        optionPanel.setLayout(new BoxLayout(optionPanel, BoxLayout.Y_AXIS));
+        optionPanel.add(new JLabel("The editor adds a \"JScriptor\" tab to Burp's WebSocket message viewer."));
+        optionPanel.add(this.wsEditorIsBinaryCheckBox);
+
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.add(optionPanel, BorderLayout.NORTH);
+        panel.add(splitPane, BorderLayout.CENTER);
+
+        return panel;
     }
 
     private void openInputDialog(JPanel panel, DefaultTableModel tableModel) {
@@ -1046,5 +1215,53 @@ public class JScriptorPanel {
 
     public JCheckBox getPostBurpIsMatchRegexCheckBox() {
         return postBurpIsMatchRegexCheckBox;
+    }
+
+    public ScriptSlot getWsReceivedSlot() {
+        return wsReceivedSlot;
+    }
+
+    public ScriptSlot getWsToBeSentSlot() {
+        return wsToBeSentSlot;
+    }
+
+    public ScriptSlot getWsAllToolsSlot() {
+        return wsAllToolsSlot;
+    }
+
+    public JCheckBox getRunWsReceivedButton() {
+        return runWsReceivedButton;
+    }
+
+    public JCheckBox getRunWsToBeSentButton() {
+        return runWsToBeSentButton;
+    }
+
+    public JCheckBox getRunWsAllToolsButton() {
+        return runWsAllToolsButton;
+    }
+
+    public RSyntaxTextArea getWsDecodeTextArea() {
+        return wsDecodeTextArea;
+    }
+
+    public RSyntaxTextArea getWsEncodeTextArea() {
+        return wsEncodeTextArea;
+    }
+
+    public JCheckBox getWsEditorEnabledCheckBox() {
+        return wsEditorEnabledCheckBox;
+    }
+
+    public JCheckBox getWsEditorIsBinaryCheckBox() {
+        return wsEditorIsBinaryCheckBox;
+    }
+
+    public JPanel getWebSocketPanel() {
+        return webSocketPanel;
+    }
+
+    public JTabbedPane getWebSocketTabbedPane() {
+        return webSocketTabbedPane;
     }
 }

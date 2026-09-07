@@ -18,6 +18,7 @@ import org.JScriptor.model.JSHttpRequest;
 import org.JScriptor.model.JSHttpResponse;
 import org.JScriptor.model.JSLogger;
 import org.JScriptor.model.JSVariableList;
+import org.JScriptor.model.JSWebSocketMessage;
 
 import javax.swing.*;
 import java.io.File;
@@ -30,14 +31,80 @@ public class JavetEngine {
     private String pre_script;
     private String post_script;
     private String post_burp;
+    private String ws_script;
 
     public JavetEngine(MontoyaApi montoyaApi, JScriptorPanel jScriptorPanel, String pre_script, String post_script, String pre_burp, String post_burp) {
+        this(montoyaApi, jScriptorPanel, pre_script, post_script, pre_burp, post_burp, null);
+    }
+
+    public JavetEngine(MontoyaApi montoyaApi, JScriptorPanel jScriptorPanel, String pre_script, String post_script,
+                       String pre_burp, String post_burp, String ws_script) {
         this.montoyaApi = montoyaApi;
         this.jScriptorPanel = jScriptorPanel;
         this.pre_script = pre_script;
         this.post_script = post_script;
         this.pre_burp = pre_burp;
         this.post_burp = post_burp;
+        this.ws_script = ws_script;
+    }
+
+    /**
+     * Runs the WebSocket script against one message.
+     *
+     * @return the message the script produced, or {@code null} when the script
+     * failed - the caller then passes the original message through untouched.
+     */
+    public JSWebSocketMessage handleWebSocketMessage(JSWebSocketMessage jsWebSocketMessage) {
+        try {
+            try (NodeRuntime nodeRuntime = loadLibrary(V8Host.getNodeInstance().createV8Runtime())) {
+
+                ObjectMapper objectMapper = new ObjectMapper();
+                String jsWebSocketString = objectMapper.writeValueAsString(jsWebSocketMessage);
+
+                JSVariableList variableList = new JSVariableList();
+                variableList.loadValue(this.montoyaApi);
+                String jsVariableString = objectMapper.writeValueAsString(variableList);
+
+                JSLogger jsLogger = new JSLogger();
+                String jsLoggerString = objectMapper.writeValueAsString(jsLogger);
+
+                nodeRuntime.getGlobalObject().set("jsvariables", jsVariableString);
+                nodeRuntime.getGlobalObject().set("jswebsocket", jsWebSocketString);
+                nodeRuntime.getGlobalObject().set("jslogger", jsLoggerString);
+
+                nodeRuntime.getExecutor("jswebsocket = JSON.parse(jswebsocket);").executeVoid();
+                nodeRuntime.getExecutor("jsvariables = JSON.parse(jsvariables);").executeVoid();
+                nodeRuntime.getExecutor("jslogger = JSON.parse(jslogger);").executeVoid();
+                nodeRuntime.getExecutor("var jsresult = {websocket:null};").executeVoid();
+
+                nodeRuntime.getExecutor(ws_script).executeVoid();
+
+                nodeRuntime.getExecutor("jsvariables = JSON.stringify(jsvariables);").executeVoid();
+                nodeRuntime.getExecutor("jslogger = JSON.stringify(jslogger);").executeVoid();
+
+                String jsVariableJSON = nodeRuntime.getGlobalObject().get("jsvariables").toString();
+                variableList = objectMapper.readValue(jsVariableJSON, JSVariableList.class);
+                variableList.saveVariable(this.montoyaApi);
+
+                String jsLoggerJSON = nodeRuntime.getGlobalObject().get("jslogger").toString();
+                jsLogger = objectMapper.readValue(jsLoggerJSON, JSLogger.class);
+                jsLogger.printLogs(this.montoyaApi);
+
+                try {
+                    nodeRuntime.getExecutor("jsresult.websocket = JSON.stringify(jsresult.websocket);").executeVoid();
+                    nodeRuntime.getExecutor("var jsresult = jsresult.websocket").executeVoid();
+                    String jsWebSocketJSON = nodeRuntime.getGlobalObject().get("jsresult").toString();
+
+                    return objectMapper.readValue(jsWebSocketJSON, JSWebSocketMessage.class);
+                } catch (Exception e) {
+                    this.montoyaApi.logging().logToError(e.getMessage());
+                    return null;
+                }
+            }
+        } catch (Exception e) {
+            this.montoyaApi.logging().logToError(e.getMessage());
+            return null;
+        }
     }
 
     public HttpRequest handleProxyRequest(InterceptedRequest requestToBeSent){

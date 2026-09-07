@@ -1,6 +1,7 @@
 package org.JScriptor;
 import burp.api.montoya.*;
 import org.JScriptor.UI.JScriptorPanel;
+import org.JScriptor.UI.WebSocketEditorProvider;
 
 public class JScriptor implements  BurpExtension{
     private MontoyaApi montoyaApi;
@@ -23,5 +24,16 @@ public class JScriptor implements  BurpExtension{
 
         ProxyResponseHandlerWithScript proxyResponseHandlerWithScript = new ProxyResponseHandlerWithScript(api, this.jScriptorPanel);
         api.proxy().registerResponseHandler(proxyResponseHandlerWithScript);
+
+        ProxyWebSocketCreationHandlerWithScript proxyWebSocketCreationHandler =
+                new ProxyWebSocketCreationHandlerWithScript(api, this.jScriptorPanel);
+        api.proxy().registerWebSocketCreationHandler(proxyWebSocketCreationHandler);
+
+        WebSocketCreatedHandlerWithScript webSocketCreatedHandler =
+                new WebSocketCreatedHandlerWithScript(api, this.jScriptorPanel);
+        api.websockets().registerWebSocketCreatedHandler(webSocketCreatedHandler);
+
+        api.userInterface().registerWebSocketMessageEditorProvider(
+                new WebSocketEditorProvider(api, this.jScriptorPanel));
     }
 }
